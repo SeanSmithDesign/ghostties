@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The far-left icon rail showing project icons.
 ///
@@ -7,11 +8,9 @@ import SwiftUI
 /// The expanded state uses an opaque background to overlay the detail panel.
 struct IconRailView: View {
     @EnvironmentObject private var store: WorkspaceStore
+    @Binding var selectedProjectID: UUID?
     @State private var isExpanded = false
-    @State private var hoverTimer: Timer?
-
-    private let collapsedWidth: CGFloat = 52
-    private let expandedWidth: CGFloat = 220
+    @State private var hoverTask: Task<Void, Never>?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -24,7 +23,7 @@ struct IconRailView: View {
             addButton
         }
         .padding(.vertical, 8)
-        .frame(width: isExpanded ? expandedWidth : collapsedWidth)
+        .frame(width: isExpanded ? WorkspaceLayout.expandedRailWidth : WorkspaceLayout.collapsedRailWidth)
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(
@@ -32,17 +31,18 @@ struct IconRailView: View {
             value: isExpanded
         )
         .onHover { hovering in
-            hoverTimer?.invalidate()
-            if hovering {
-                hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
-                    isExpanded = true
-                }
-            } else {
-                hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                    isExpanded = false
-                }
+            hoverTask?.cancel()
+            hoverTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(hovering ? 100 : 150))
+                guard !Task.isCancelled else { return }
+                isExpanded = hovering
             }
         }
+        .onDisappear {
+            hoverTask?.cancel()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Project rail")
     }
 
     // MARK: - Subviews
@@ -51,11 +51,11 @@ struct IconRailView: View {
         ForEach(store.sortedProjects) { project in
             ProjectRailItem(
                 project: project,
-                isSelected: project.id == store.selectedProjectID,
+                isSelected: project.id == selectedProjectID,
                 isExpanded: isExpanded
             )
             .onTapGesture {
-                store.select(id: project.id)
+                selectedProjectID = project.id
             }
             .contextMenu {
                 Button(project.isPinned ? "Unpin" : "Pin") {
@@ -70,7 +70,7 @@ struct IconRailView: View {
     }
 
     private var addButton: some View {
-        Button(action: { store.addProjectViaFolderPicker() }) {
+        Button(action: presentFolderPicker) {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(size: 16, weight: .medium))
@@ -90,5 +90,22 @@ struct IconRailView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .accessibilityLabel("Add project")
+    }
+
+    // MARK: - Actions
+
+    private func presentFolderPicker() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a project folder"
+        panel.prompt = "Add Project"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        store.addProject(at: url)
+        selectedProjectID = store.sortedProjects.first(where: {
+            $0.rootPath == url.standardizedFileURL.path
+        })?.id
     }
 }

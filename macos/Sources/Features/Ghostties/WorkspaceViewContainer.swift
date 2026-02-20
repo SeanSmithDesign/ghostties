@@ -38,7 +38,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     override var intrinsicContentSize: NSSize {
         let termSize = terminalContainer.intrinsicContentSize
         guard termSize.width != NSView.noIntrinsicMetric else { return termSize }
-        return NSSize(width: termSize.width + 220, height: termSize.height)
+        return NSSize(width: termSize.width + WorkspaceLayout.sidebarWidth, height: termSize.height)
     }
 
     private func setup() {
@@ -53,7 +53,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             sidebarHostingView.topAnchor.constraint(equalTo: topAnchor),
             sidebarHostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
             sidebarHostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            sidebarHostingView.widthAnchor.constraint(equalToConstant: 220),
+            sidebarHostingView.widthAnchor.constraint(equalToConstant: WorkspaceLayout.sidebarWidth),
 
             // Terminal: fills remaining space
             terminalContainer.topAnchor.constraint(equalTo: topAnchor),

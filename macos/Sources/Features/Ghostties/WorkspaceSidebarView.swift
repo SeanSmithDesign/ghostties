@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The full sidebar: icon rail overlays a detail panel within a fixed-width container.
 ///
@@ -9,26 +10,40 @@ import SwiftUI
 struct WorkspaceSidebarView: View {
     @EnvironmentObject private var store: WorkspaceStore
 
+    /// Per-window selection state — each window can focus a different project.
+    @State private var selectedProjectID: UUID?
+
     var body: some View {
         ZStack(alignment: .leading) {
             // Detail layer: always present, offset past the collapsed rail
             HStack(spacing: 0) {
                 Spacer()
-                    .frame(width: 52)
+                    .frame(width: WorkspaceLayout.collapsedRailWidth)
                 Divider()
                 detailPanel
             }
 
             // Icon rail: overlays the detail panel when expanded
-            IconRailView()
+            IconRailView(selectedProjectID: $selectedProjectID)
+        }
+        .onAppear {
+            // Default to the first project on initial display.
+            if selectedProjectID == nil {
+                selectedProjectID = store.sortedProjects.first?.id
+            }
         }
     }
 
     // MARK: - Detail Panel
 
+    private var selectedProject: Project? {
+        guard let id = selectedProjectID else { return nil }
+        return store.projects.first { $0.id == id }
+    }
+
     @ViewBuilder
     private var detailPanel: some View {
-        if let project = store.selectedProject {
+        if let project = selectedProject {
             VStack(alignment: .leading, spacing: 0) {
                 Text(project.name)
                     .font(.system(size: 13, weight: .semibold))
@@ -38,14 +53,15 @@ struct WorkspaceSidebarView: View {
 
                 Divider()
 
-                // Phase 3: this becomes SessionDetailView with real session data
-                List {
-                    Section("Sessions") {
-                        Label("Shell", systemImage: "terminal.fill")
-                        Label("Claude Code", systemImage: "sparkles")
-                    }
-                }
-                .listStyle(.sidebar)
+                // Project path — sessions replace this in Phase 3
+                Text(project.rootPath)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+
+                Spacer()
             }
         } else {
             emptyState
@@ -62,12 +78,27 @@ struct WorkspaceSidebarView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
 
-            Button("Add Project") {
-                store.addProjectViaFolderPicker()
-            }
-            .buttonStyle(.bordered)
+            Button("Add Project", action: presentFolderPicker)
+                .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+
+    // MARK: - Actions
+
+    private func presentFolderPicker() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a project folder"
+        panel.prompt = "Add Project"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        store.addProject(at: url)
+        selectedProjectID = store.sortedProjects.first(where: {
+            $0.rootPath == url.standardizedFileURL.path
+        })?.id
     }
 }
