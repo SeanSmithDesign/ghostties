@@ -1023,8 +1023,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             focusedSurface = view
         }
 
-        // Initialize our content view to the SwiftUI root
-        window.contentView = TerminalViewContainer(
+        // Initialize our content view to the workspace root (sidebar + terminal)
+        window.contentView = WorkspaceViewContainer(
             ghostty: self.ghostty,
             viewModel: self,
             delegate: self,
