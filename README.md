@@ -10,6 +10,10 @@ Ghostties is a fork of [Ghostty](https://github.com/ghostty-org/ghostty), the fa
 
 For core terminal emulator documentation, downloads, and configuration, see the [upstream Ghostty repo](https://github.com/ghostty-org/ghostty) and [ghostty.org](https://ghostty.org/docs).
 
+## First Launch
+
+On first launch, macOS will prompt for access to folders like Desktop, Documents, and iCloud Drive. This is standard macOS behavior for any new terminal app — the prompts are triggered by commands running inside the terminal, not by Ghostties itself. You can safely deny access to any folder you don't need. To suppress all prompts, grant Full Disk Access in System Settings > Privacy & Security.
+
 ## Development
 
 To get started building from source, see:

@@ -159,14 +159,14 @@ HStack(spacing: 0) {
 
 ### Phase 2: Icon Rail + Project Management (2 sessions)
 
-- [ ] Create `Project` model (Codable)
-- [ ] Create `WorkspaceStore` (@Observable singleton)
-- [ ] Create `WorkspacePersistence` (JSON in App Support)
-- [ ] Create `IconRailView` with hover-expand animation
-- [ ] Create `ProjectRailItem` (icon + label)
-- [ ] Implement "Add Project" (folder picker → pin to rail)
-- [ ] Implement pinned vs recent project ordering
-- [ ] Inject `WorkspaceStore` from `AppDelegate`
+- [x] Create `Project` model (Codable)
+- [x] Create `WorkspaceStore` (ObservableObject singleton — macOS 13 compat)
+- [x] Create `WorkspacePersistence` (JSON in App Support)
+- [x] Create `IconRailView` with hover-expand animation
+- [x] Create `ProjectRailItem` (icon + label)
+- [x] Implement "Add Project" (folder picker → pin to rail)
+- [x] Implement pinned vs recent project ordering
+- [x] Inject `WorkspaceStore` via @EnvironmentObject
 - [ ] Verify: icon rail shows projects, hover expands, selection works
 
 ### Phase 3: Session Management (2-3 sessions)

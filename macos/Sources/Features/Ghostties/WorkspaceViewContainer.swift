@@ -4,8 +4,9 @@ import SwiftUI
 /// An NSView that contains the workspace sidebar alongside the existing terminal view.
 /// This replaces TerminalViewContainer as the window's contentView.
 ///
-/// Phase 1: The sidebar is a static placeholder. The terminal side is a standard
-/// TerminalViewContainer, completely untouched.
+/// The sidebar is a SwiftUI view hierarchy (icon rail + detail panel) embedded in an
+/// NSHostingView. The terminal side is the standard TerminalViewContainer, untouched.
+/// Both are arranged via Auto Layout with the sidebar at a fixed 220pt width.
 class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     private let sidebarHostingView: NSView
     private let terminalContainer: TerminalViewContainer<ViewModel>
@@ -18,6 +19,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         )
 
         let sidebarView = WorkspaceSidebarView()
+            .environmentObject(WorkspaceStore.shared)
         let hostingView = NSHostingView(rootView: sidebarView)
         // Auto Layout controls the sidebar width; disable intrinsic size reporting
         // to avoid unnecessary layout computation from the hosting view.
@@ -47,7 +49,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         terminalContainer.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            // Sidebar: pinned to leading edge, full height
+            // Sidebar: pinned to leading edge, full height, fixed width
             sidebarHostingView.topAnchor.constraint(equalTo: topAnchor),
             sidebarHostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
             sidebarHostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
