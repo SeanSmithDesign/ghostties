@@ -16,3 +16,11 @@ To get started building from source, see:
 
 - [Developing Ghostty](HACKING.md) — build instructions, logging, linting
 - [Contributing](CONTRIBUTING.md) — contribution guidelines
+
+## Acknowledgments
+
+Ghostties is built on [Ghostty](https://github.com/ghostty-org/ghostty), created by [Mitchell Hashimoto](https://github.com/mitchellh) and the Ghostty contributors. Ghostty is a fast, native, feature-rich terminal emulator — and the foundation that makes this project possible. Thank you to the entire Ghostty community.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE), the same license as upstream Ghostty. Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors.
