@@ -145,17 +145,17 @@ HStack(spacing: 0) {
 
 ### Phase 1: Foundation (1-2 sessions)
 
-- [ ] Fork Ghostty on GitHub → `SeanSmithDesign/ghostties`
-- [ ] Clone fork, add upstream remote, create `upstream-main` branch
-- [ ] Install Zig 0.14.1, verify build from source (`zig build run`)
-- [ ] Update bundle identifiers (ghostty → ghostties)
+- [x] Fork Ghostty on GitHub → `SeanSmithDesign/ghostties`
+- [x] Clone fork, add upstream remote, create `upstream-main` branch
+- [x] Install Zig 0.15.2, verify build from source (`zig build`)
+- [x] Update bundle identifiers (ghostty → ghostties) — 11 files, all macOS + Zig identifiers
 - [ ] Open Xcode project, verify Swift iteration loop works
-- [ ] Create empty `Ghostties/` feature directory
-- [ ] Create `WorkspaceViewContainer.swift` (NSHostingView wrapper)
-- [ ] Create minimal `WorkspaceView.swift` — hardcoded `List { Text("Project A"); Text("Project B") }` in sidebar column, `TerminalView` in detail column
-- [ ] Modify `TerminalController.swift` — swap contentView to WorkspaceViewContainer (one-line change in `windowDidLoad()`)
-- [ ] Note: no WorkspaceStore yet — Phase 1 sidebar is static/hardcoded. AppDelegate changes happen in Phase 2. Tab bar remains unchanged.
-- [ ] Verify: app launches with a visible (placeholder) sidebar + working terminal. Existing Ghostty features (splits, tabs, config) still work.
+- [x] Create empty `Ghostties/` feature directory
+- [x] Create `WorkspaceViewContainer.swift` (NSView wrapper with sidebar + TerminalViewContainer)
+- [x] Create `WorkspaceSidebarView.swift` — hardcoded List with project/session placeholders
+- [x] Modify `TerminalController.swift` — swap contentView to WorkspaceViewContainer (one-line change in `windowDidLoad()`)
+- [x] Note: no WorkspaceStore yet — Phase 1 sidebar is static/hardcoded. AppDelegate changes happen in Phase 2. Tab bar remains unchanged.
+- [x] Verify: app launches with a visible (placeholder) sidebar + working terminal.
 
 ### Phase 2: Icon Rail + Project Management (2 sessions)
 
