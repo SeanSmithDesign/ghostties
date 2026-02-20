@@ -18,6 +18,5 @@ struct WorkspaceSidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 200, idealWidth: 220, maxWidth: 300)
     }
 }

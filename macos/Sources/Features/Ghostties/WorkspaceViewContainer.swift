@@ -19,7 +19,9 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
 
         let sidebarView = WorkspaceSidebarView()
         let hostingView = NSHostingView(rootView: sidebarView)
-        hostingView.sizingOptions = [.minSize]
+        // Auto Layout controls the sidebar width; disable intrinsic size reporting
+        // to avoid unnecessary layout computation from the hosting view.
+        hostingView.sizingOptions = []
         self.sidebarHostingView = hostingView
 
         super.init(frame: .zero)
@@ -32,7 +34,9 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        terminalContainer.intrinsicContentSize
+        let termSize = terminalContainer.intrinsicContentSize
+        guard termSize.width != NSView.noIntrinsicMetric else { return termSize }
+        return NSSize(width: termSize.width + 220, height: termSize.height)
     }
 
     private func setup() {
