@@ -667,11 +667,11 @@ private struct TabColorIndicatorView: View {
 // MARK: - Tab Context Menu
 
 extension TerminalWindow {
-    private static let closeTabsOnRightMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.closeTabsOnTheRightMenuItem")
-    private static let changeTitleMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.changeTitleMenuItem")
-    private static let tabColorSeparatorIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.tabColorSeparator")
+    private static let closeTabsOnRightMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.seansmithdesign.ghostties.closeTabsOnTheRightMenuItem")
+    private static let changeTitleMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.seansmithdesign.ghostties.changeTitleMenuItem")
+    private static let tabColorSeparatorIdentifier = NSUserInterfaceItemIdentifier("com.seansmithdesign.ghostties.tabColorSeparator")
 
-    private static let tabColorPaletteIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.tabColorPalette")
+    private static let tabColorPaletteIdentifier = NSUserInterfaceItemIdentifier("com.seansmithdesign.ghostties.tabColorPalette")
 
     func configureTabContextMenuIfNeeded(_ menu: NSMenu) {
         guard isTabContextMenu(menu) else { return }

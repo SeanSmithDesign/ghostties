@@ -104,7 +104,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>com.mitchellh.ghosttySurfaceId</string>
+			<string>com.seansmithdesign.ghosttiesSurfaceId</string>
 			<key>UTTypeDescription</key>
 			<string>Ghostty Surface Identifier</string>
 			<key>UTTypeConformsTo</key>
