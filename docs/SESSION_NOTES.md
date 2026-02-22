@@ -1,5 +1,44 @@
 # Session Notes — Ghostties
 
+## Feb 22, 2026
+
+### Features Implemented
+1. **Xcode project rename**: Renamed `.xcodeproj`, scheme, target, and supporting files from "Ghostty" to "Ghostties" so Xcode UI matches the app name everywhere (scheme dropdown, target list, project navigator)
+2. **App icon replacement**: Replaced all 3 asset catalog icon sizes (1024/512/256) with new artwork from `Frame 1.png`
+3. **PR created**: Opened PR for all Phase 2–4 work + Xcode rename → https://github.com/ghostty-org/ghostty/pull/10955
+
+### Files Changed
+- `macos/Ghostty.xcodeproj/` → `macos/Ghostties.xcodeproj/` (folder rename)
+- `Ghostty.xcscheme` → `Ghostties.xcscheme` (BlueprintName x3, ReferencedContainer x5)
+- `project.pbxproj` — target name, build config comments, file references, INFOPLIST_FILE, CODE_SIGN_ENTITLEMENTS
+- `macos/Ghostty-Info.plist` → `Ghostties-Info.plist`
+- `macos/Ghostty.entitlements` → `Ghostties.entitlements`
+- `images/Ghostty.icon/` → `Ghostties.icon/`
+- `src/build/GhosttyXcodebuild.zig` — `-target` and `-scheme` strings
+- `macos/Assets.xcassets/AppIconImage.imageset/` — 3 icon PNGs replaced
+
+### Preserved (by design)
+- `PRODUCT_MODULE_NAME = Ghostty` — all Swift code uses `import Ghostty`
+- `GhosttyTests` / `GhosttyUITests` target names
+- `GhosttyDebug.entitlements` / `GhosttyReleaseLocal.entitlements`
+
+### Key Commands
+```bash
+cd ~/Code/ghostties
+open macos/Ghostties.xcodeproj             # Verify Xcode shows "Ghostties"
+zig build run -Doptimize=ReleaseFast       # Build + launch with new icon
+```
+
+### Commits
+- `179a4df00` rename(xcode): rename Xcode project to Ghostties and replace app icon
+
+### Verification
+- [x] Xcode opens with "Ghostties" in scheme dropdown and target list
+- [ ] `zig build run` — app launches with new icon
+- [ ] `Cmd+U` in Xcode — all tests pass
+
+---
+
 ## Feb 20-22, 2026
 
 ### Features Implemented
@@ -21,7 +60,7 @@ cd ~/Code/ghostties
 zig build run -Doptimize=ReleaseFast   # Build + launch release app
 zig build test                          # Run all tests (zig + xcodebuild)
 rm -rf macos/build && zig build run -Doptimize=ReleaseFast  # Clean rebuild
-# Unit tests: open macos/Ghostty.xcodeproj in Xcode, Cmd+U
+# Unit tests: open macos/Ghostties.xcodeproj in Xcode, Cmd+U
 ```
 
 ### Commits
