@@ -56,7 +56,7 @@ final class SessionCoordinator: ObservableObject {
 
         var config = Ghostty.SurfaceConfiguration()
         config.workingDirectory = project.rootPath
-        config.command = template.command
+        config.command = template.command.map(Self.resolveCommand)
         config.environmentVariables = template.environmentVariables
 
         let newView = Ghostty.SurfaceView(ghosttyApp, baseConfig: config)
@@ -225,6 +225,50 @@ final class SessionCoordinator: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Resolve a bare command name to its absolute path using the user's login shell.
+    ///
+    /// Ghostty launches commands via `/usr/bin/login ... --noprofile --norc`, so the
+    /// user's PATH from shell profiles isn't available. This spawns a login shell to
+    /// get the full PATH, then searches for the binary. Returns the original command
+    /// if resolution fails or the command is already absolute.
+    private static func resolveCommand(_ command: String) -> String {
+        guard !command.hasPrefix("/") else { return command }
+
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+
+        // Spawn a login shell to get the user's full PATH (includes Homebrew, npm, etc.).
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: shell)
+        task.arguments = ["-l", "-c", "echo $PATH"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return command
+        }
+
+        guard task.terminationStatus == 0 else { return command }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let pathString = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !pathString.isEmpty else { return command }
+
+        // Search each PATH directory for the executable.
+        let fm = FileManager.default
+        for dir in pathString.split(separator: ":").map(String.init) {
+            let candidate = (dir as NSString).appendingPathComponent(command)
+            if fm.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+
+        return command
     }
 
     /// Find which session owns a given surface by searching all stored trees.
