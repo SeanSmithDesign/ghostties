@@ -5,7 +5,8 @@
 ### Features Implemented
 1. **Xcode project rename**: Renamed `.xcodeproj`, scheme, target, and supporting files from "Ghostty" to "Ghostties" so Xcode UI matches the app name everywhere (scheme dropdown, target list, project navigator)
 2. **App icon replacement**: Replaced all 3 asset catalog icon sizes (1024/512/256) with new artwork from `Frame 1.png`
-3. **PR created**: Opened PR for all Phase 2–4 work + Xcode rename → https://github.com/ghostty-org/ghostty/pull/10955
+3. **Merged to main**: Feature branch `feat/phase3-session-management` (Phases 2–4 + Xcode rename) merged to main via fast-forward
+4. **CLAUDE.md added**: Project conventions and fork guardrails — prevents accidental PRs against upstream `ghostty-org/ghostty`
 
 ### Files Changed
 - `macos/Ghostty.xcodeproj/` → `macos/Ghostties.xcodeproj/` (folder rename)
@@ -31,11 +32,17 @@ zig build run -Doptimize=ReleaseFast       # Build + launch with new icon
 
 ### Commits
 - `179a4df00` rename(xcode): rename Xcode project to Ghostties and replace app icon
+- `2d3851bc8` docs: update session notes for Xcode rename and PR
+- `cc15ff465` docs: add CLAUDE.md with fork guardrails and project conventions
 
 ### Verification
 - [x] Xcode opens with "Ghostties" in scheme dropdown and target list
 - [ ] `zig build run` — app launches with new icon
 - [ ] `Cmd+U` in Xcode — all tests pass
+
+### Notes
+- Accidentally opened PR #10955 against upstream `ghostty-org/ghostty` (now closed). Added guardrail to CLAUDE.md to prevent this in future sessions.
+- Feature branch merged to main — all work now on `main`
 
 ---
 
