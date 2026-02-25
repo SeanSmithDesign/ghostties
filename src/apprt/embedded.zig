@@ -944,6 +944,11 @@ pub const Surface = struct {
             // Remove this so that running `ghostty` within Ghostty works.
             env.remove("GHOSTTY_MAC_LAUNCH_SOURCE");
 
+            // Remove Claude Code session markers so that spawned terminals
+            // can launch their own Claude Code instances without the nested
+            // session guard blocking them.
+            env.remove("CLAUDECODE");
+
             // If we were launched from the desktop then we want to
             // remove the LANGUAGE env var so that we don't inherit
             // our translation settings for Ghostty. If we aren't from

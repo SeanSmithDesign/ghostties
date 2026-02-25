@@ -31,12 +31,20 @@ final class SessionCoordinator: ObservableObject {
     /// live version); call `snapshotActiveTree()` to sync before reading.
     private(set) var sessionTrees: [UUID: SplitTree<Ghostty.SurfaceView>] = [:]
 
-    /// Maps session IDs to their runtime status.
-    @Published private(set) var statuses: [UUID: SessionStatus] = [:]
+    /// Per-window runtime status. Views should prefer `WorkspaceStore.shared.globalStatuses`
+    /// for cross-window visibility; this local copy is kept for backward compatibility.
+    @Published private(set) var statuses: [UUID: SessionStatus] = [:] {
+        didSet { syncGlobalStatuses() }
+    }
+
+    /// Tracks the last focused session per project per window, so clicking a
+    /// project in the icon rail can restore the correct terminal session.
+    private(set) var lastActiveSessionPerProject: [UUID: UUID] = [:]
 
     init(ghostty: Ghostty.App) {
         self.ghostty = ghostty
         observeLifecycle()
+        observeProjectRemoval()
     }
 
     // MARK: - Session Creation
@@ -68,6 +76,7 @@ final class SessionCoordinator: ObservableObject {
         sessionTrees[session.id] = newTree
         statuses[session.id] = .running
         activeSessionId = session.id
+        lastActiveSessionPerProject[session.projectId] = session.id
 
         showSession(newTree, focusView: newView)
         return true
@@ -88,6 +97,30 @@ final class SessionCoordinator: ObservableObject {
 
         activeSessionId = id
         showSession(tree, focusView: tree.first)
+
+        // Record this session as the last active one for its project.
+        if let session = WorkspaceStore.shared.sessions.first(where: { $0.id == id }) {
+            lastActiveSessionPerProject[session.projectId] = id
+        }
+    }
+
+    /// Focus the last active session for a given project, or the first running session if none.
+    ///
+    /// Called when the user clicks a project in the icon rail to auto-switch the terminal
+    /// to the most recently used session in that project.
+    func focusLastSession(forProject projectId: UUID) {
+        // Try the remembered session first.
+        if let lastId = lastActiveSessionPerProject[projectId],
+           sessionTrees[lastId] != nil {
+            focusSession(id: lastId)
+            return
+        }
+
+        // Fall back to the first running session in this project.
+        let projectSessions = WorkspaceStore.shared.sessions(for: projectId)
+        if let running = projectSessions.first(where: { sessionTrees[$0.id] != nil }) {
+            focusSession(id: running.id)
+        }
     }
 
     // MARK: - Lifecycle
@@ -169,6 +202,35 @@ final class SessionCoordinator: ObservableObject {
         }
     }
 
+    /// Close all sessions belonging to a project. Called before the project is
+    /// removed from the store, so that running terminals are properly terminated.
+    func closeAllSessions(forProject projectId: UUID) {
+        let projectSessions = WorkspaceStore.shared.sessions.filter { $0.projectId == projectId }
+        for session in projectSessions {
+            if sessionTrees[session.id] != nil {
+                closeSession(id: session.id)
+            }
+            clearRuntime(id: session.id)
+        }
+        lastActiveSessionPerProject.removeValue(forKey: projectId)
+    }
+
+    /// Observe project removal notifications so we can close running sessions
+    /// before the store deletes the project's session records.
+    private func observeProjectRemoval() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(projectWillBeRemoved(_:)),
+            name: .workspaceProjectWillBeRemoved,
+            object: nil
+        )
+    }
+
+    @objc private func projectWillBeRemoved(_ notification: Notification) {
+        guard let projectId = notification.userInfo?["projectId"] as? UUID else { return }
+        closeAllSessions(forProject: projectId)
+    }
+
     /// Observe Ghostty surface close notifications to track session lifecycle.
     private func observeLifecycle() {
         NotificationCenter.default.addObserver(
@@ -236,9 +298,30 @@ final class SessionCoordinator: ObservableObject {
     private static func resolveCommand(_ command: String) -> String {
         guard !command.hasPrefix("/") else { return command }
 
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser.path
+
+        // Fast path: check common CLI tool installation directories directly.
+        // This avoids spawning a subprocess, which can fail silently in the
+        // macOS GUI app context (minimal environment, no TTY).
+        let commonPaths = [
+            "\(home)/.local/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+        ]
+        for dir in commonPaths {
+            let candidate = (dir as NSString).appendingPathComponent(command)
+            if fm.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+
+        // Slow path: spawn a login shell to discover the full PATH.
+        // Covers binaries in unusual locations not in the common list above.
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
 
-        // Spawn a login shell to get the user's full PATH (includes Homebrew, npm, etc.).
         let task = Process()
         task.executableURL = URL(fileURLWithPath: shell)
         task.arguments = ["-l", "-c", "echo $PATH"]
@@ -259,8 +342,6 @@ final class SessionCoordinator: ObservableObject {
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !pathString.isEmpty else { return command }
 
-        // Search each PATH directory for the executable.
-        let fm = FileManager.default
         for dir in pathString.split(separator: ":").map(String.init) {
             let candidate = (dir as NSString).appendingPathComponent(command)
             if fm.isExecutableFile(atPath: candidate) {
@@ -286,6 +367,13 @@ final class SessionCoordinator: ObservableObject {
             }
         }
         return nil
+    }
+
+    /// Push local status changes to the global store so all windows see them.
+    private func syncGlobalStatuses() {
+        for (id, status) in statuses {
+            WorkspaceStore.shared.globalStatuses[id] = status
+        }
     }
 
     deinit {
