@@ -1,5 +1,45 @@
 # Session Notes — Ghostties
 
+## Feb 25, 2026
+
+### Features Implemented
+1. **Code review remediation (20 findings)**: Fixed all P1-P3 issues from 6-agent review of sidebar feature commit `b8bf55102`
+   - P1: Fixed SwiftUI tap gesture ordering (double-tap before single-tap), moved command resolution off main thread with async + cache + 3s timeout
+   - P2: Fixed FocusState binding type, accent color opacity (0.12 → 0.15), replaced bulk didSet status sync with targeted setStatus, eliminated UUID?? double-optional, added nil window guard, expanded env var blocklist, consolidated session creation into shared helper, encapsulated globalStatuses
+   - P3: Removed dead code (draggingSessionId, moveSessionUp/Down), compact ghost grid encoding, removed orphaned app icon asset
+2. **Solution documentation**: Documented all findings and fixes in `docs/solutions/logic-errors/sidebar-code-review-remediation.md`
+
+### Files Modified
+- `SessionDetailView.swift` — gesture order, FocusState binding, opacity, removed dead state
+- `SessionCoordinator.swift` — async createSession, resolveCommand cache/timeout, setStatus, createQuickSession, deinit cleanup
+- `WorkspaceStore.swift` — globalStatuses private(set), removed UUID??, removed dead moveSession methods, added updateSessionStatus/removeSessionStatus/clearDefaultTemplate
+- `WorkspaceViewContainer.swift` — nil window guard
+- `GhostCharacter.swift` — static grids dict, compact string-based encoding with parseGrid
+- `TemplatePickerView.swift` — expanded dangerousEnvKeys blocklist
+- `WorkspaceSidebarView.swift` — uses createQuickSession
+- `ProjectSettingsView.swift` — uses clearDefaultTemplate
+- `WorkspacePersistence.swift` — env var validation on load
+
+### New Files Created
+- `docs/solutions/logic-errors/sidebar-code-review-remediation.md` — full solution documentation
+
+### Key Commands
+```bash
+rm -rf macos/build && zig build run -Doptimize=ReleaseFast  # Clean rebuild
+zig build -Doptimize=ReleaseFast                             # Incremental build
+```
+
+### Commits
+- `b1d9a4437` fix(sidebar): address P1–P3 code review findings from sidebar feature
+- `839596419` docs: add solution doc for sidebar code review remediation
+
+### Notes for Next Session
+- All 20 review findings resolved — build passes clean
+- Manual verification checklist: double-click rename, Cmd+Shift+T session creation, project settings (ghost/template/clear), light↔dark appearance, window close/reopen status dots
+- 7 manual testing findings from Feb 20-22 session still pending (tab bar conflict, keyboard shortcut remapping, exit behavior, etc.)
+
+---
+
 ## Feb 22, 2026
 
 ### Features Implemented
