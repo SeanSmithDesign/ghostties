@@ -33,9 +33,10 @@ final class SessionCoordinator: ObservableObject {
 
     /// Per-window runtime status. Views should prefer `WorkspaceStore.shared.globalStatuses`
     /// for cross-window visibility; this local copy is kept for backward compatibility.
-    @Published private(set) var statuses: [UUID: SessionStatus] = [:] {
-        didSet { syncGlobalStatuses() }
-    }
+    @Published private(set) var statuses: [UUID: SessionStatus] = [:]
+
+    /// Cache resolved command paths to avoid repeated shell spawns.
+    nonisolated(unsafe) private static var resolvedPaths: [String: String] = [:]
 
     /// Tracks the last focused session per project per window, so clicking a
     /// project in the icon rail can restore the correct terminal session.
@@ -51,20 +52,33 @@ final class SessionCoordinator: ObservableObject {
 
     /// Create a new terminal session from a template within a project.
     ///
-    /// Creates a Ghostty surface with the appropriate configuration and makes it
-    /// the sole occupant of the terminal area (replacing whatever was there before).
-    /// The previous session's tree is snapshotted before the switch.
+    /// Resolves the command path off the main thread (with a 3-second timeout),
+    /// then creates a Ghostty surface and makes it the sole occupant of the
+    /// terminal area. The previous session's tree is snapshotted before the switch.
     @discardableResult
     func createSession(
         session: AgentSession,
         template: SessionTemplate,
         project: Project
-    ) -> Bool {
+    ) async -> Bool {
         guard let ghosttyApp = ghostty.app else { return false }
+
+        // Resolve command off main thread with timeout.
+        let resolvedCommand: String? = await {
+            guard let cmd = template.command else { return nil }
+            let resolveTask = Task.detached { Self.resolveCommand(cmd) }
+            let timeoutTask = Task {
+                try await Task.sleep(for: .seconds(3))
+                resolveTask.cancel()
+            }
+            let result = await resolveTask.value
+            timeoutTask.cancel()
+            return result
+        }()
 
         var config = Ghostty.SurfaceConfiguration()
         config.workingDirectory = project.rootPath
-        config.command = template.command.map(Self.resolveCommand)
+        config.command = resolvedCommand
         config.environmentVariables = template.environmentVariables
 
         let newView = Ghostty.SurfaceView(ghosttyApp, baseConfig: config)
@@ -74,12 +88,25 @@ final class SessionCoordinator: ObservableObject {
         snapshotActiveTree()
 
         sessionTrees[session.id] = newTree
-        statuses[session.id] = .running
+        setStatus(.running, for: session.id)
         activeSessionId = session.id
         lastActiveSessionPerProject[session.projectId] = session.id
 
         showSession(newTree, focusView: newView)
         return true
+    }
+
+    /// Create a session using the project's default or specified template with auto-generated naming.
+    ///
+    /// Shared helper used by SessionDetailView, WorkspaceSidebarView, and TemplatePickerView
+    /// to avoid duplicating session-creation logic.
+    @discardableResult
+    func createQuickSession(for project: Project, template: SessionTemplate) async -> Bool {
+        let store = WorkspaceStore.shared
+        let count = store.sessions(for: project.id).count
+        let name = "\(template.name) \(count + 1)"
+        let session = store.addSession(name: name, templateId: template.id, projectId: project.id)
+        return await createSession(session: session, template: template, project: project)
     }
 
     // MARK: - Session Switching
@@ -136,7 +163,7 @@ final class SessionCoordinator: ObservableObject {
 
         // Remove from our tracking first, then close surfaces via the controller.
         sessionTrees.removeValue(forKey: id)
-        statuses[id] = .exited
+        setStatus(.exited, for: id)
 
         // If this was the active session, switch to another running session.
         if activeSessionId == id {
@@ -154,6 +181,7 @@ final class SessionCoordinator: ObservableObject {
     func clearRuntime(id: UUID) {
         sessionTrees.removeValue(forKey: id)
         statuses.removeValue(forKey: id)
+        WorkspaceStore.shared.removeSessionStatus(id: id)
     }
 
     // MARK: - Private
@@ -268,7 +296,7 @@ final class SessionCoordinator: ObservableObject {
                 let liveTree = controller.surfaceTree
                 if liveTree.isEmpty {
                     sessionTrees.removeValue(forKey: sessionId)
-                    statuses[sessionId] = processAlive ? .killed : .exited
+                    setStatus(processAlive ? .killed : .exited, for: sessionId)
                     switchToNextSession()
                 } else {
                     sessionTrees[sessionId] = liveTree
@@ -281,7 +309,7 @@ final class SessionCoordinator: ObservableObject {
                 let updated = tree.removing(node)
                 if updated.isEmpty {
                     sessionTrees.removeValue(forKey: sessionId)
-                    statuses[sessionId] = processAlive ? .killed : .exited
+                    setStatus(processAlive ? .killed : .exited, for: sessionId)
                 } else {
                     sessionTrees[sessionId] = updated
                 }
@@ -295,8 +323,11 @@ final class SessionCoordinator: ObservableObject {
     /// user's PATH from shell profiles isn't available. This spawns a login shell to
     /// get the full PATH, then searches for the binary. Returns the original command
     /// if resolution fails or the command is already absolute.
-    private static func resolveCommand(_ command: String) -> String {
+    nonisolated private static func resolveCommand(_ command: String) -> String {
         guard !command.hasPrefix("/") else { return command }
+
+        // Check cache first.
+        if let cached = resolvedPaths[command] { return cached }
 
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
@@ -314,6 +345,7 @@ final class SessionCoordinator: ObservableObject {
         for dir in commonPaths {
             let candidate = (dir as NSString).appendingPathComponent(command)
             if fm.isExecutableFile(atPath: candidate) {
+                resolvedPaths[command] = candidate
                 return candidate
             }
         }
@@ -345,6 +377,7 @@ final class SessionCoordinator: ObservableObject {
         for dir in pathString.split(separator: ":").map(String.init) {
             let candidate = (dir as NSString).appendingPathComponent(command)
             if fm.isExecutableFile(atPath: candidate) {
+                resolvedPaths[command] = candidate
                 return candidate
             }
         }
@@ -369,14 +402,21 @@ final class SessionCoordinator: ObservableObject {
         return nil
     }
 
-    /// Push local status changes to the global store so all windows see them.
-    private func syncGlobalStatuses() {
-        for (id, status) in statuses {
-            WorkspaceStore.shared.globalStatuses[id] = status
-        }
+    /// Update a session's status locally and in the global store.
+    private func setStatus(_ status: SessionStatus, for id: UUID) {
+        statuses[id] = status
+        WorkspaceStore.shared.updateSessionStatus(id: id, status: status)
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        // Clean up this coordinator's session entries from the global store.
+        // SessionCoordinator is always deallocated on the main thread (UI object),
+        // so assumeIsolated is safe here.
+        MainActor.assumeIsolated {
+            for id in statuses.keys {
+                WorkspaceStore.shared.removeSessionStatus(id: id)
+            }
+        }
     }
 }

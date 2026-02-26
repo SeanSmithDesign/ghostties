@@ -18,8 +18,8 @@ final class WorkspaceStore: ObservableObject {
 
     /// Global session status — shared across all windows so that a session
     /// running in Window A shows a green dot in Window B's sidebar too.
-    /// Coordinators write to this; views read from it.
-    @Published var globalStatuses: [UUID: SessionStatus] = [:]
+    /// Coordinators write via `updateSessionStatus`; views read directly.
+    @Published private(set) var globalStatuses: [UUID: SessionStatus] = [:]
 
     /// Whether the sidebar should be visible. Persisted across launches.
     var sidebarVisible: Bool = true {
@@ -165,31 +165,34 @@ final class WorkspaceStore: ObservableObject {
         persist()
     }
 
-    /// Move a session up one position within its project.
-    func moveSessionUp(id: UUID, inProject projectId: UUID) {
-        let projectSessions = sessions(for: projectId)
-        guard let index = projectSessions.firstIndex(where: { $0.id == id }),
-              index > 0 else { return }
-        moveSession(id: id, toIndex: index - 1, inProject: projectId)
-    }
-
-    /// Move a session down one position within its project.
-    func moveSessionDown(id: UUID, inProject projectId: UUID) {
-        let projectSessions = sessions(for: projectId)
-        guard let index = projectSessions.firstIndex(where: { $0.id == id }),
-              index < projectSessions.count - 1 else { return }
-        moveSession(id: id, toIndex: index + 1, inProject: projectId)
-    }
-
     // MARK: - Project Mutation
 
     /// Update a project's display name, ghost character, and/or default template.
-    func updateProject(id: UUID, name: String? = nil, ghostCharacter: GhostCharacter? = nil, defaultTemplateId: UUID?? = nil) {
+    func updateProject(id: UUID, name: String? = nil, ghostCharacter: GhostCharacter? = nil, defaultTemplateId: UUID? = nil) {
         guard let index = projects.firstIndex(where: { $0.id == id }) else { return }
         if let name { projects[index].name = name }
         if let ghost = ghostCharacter { projects[index].ghostCharacter = ghost }
         if let templateId = defaultTemplateId { projects[index].defaultTemplateId = templateId }
         persist()
+    }
+
+    /// Clear a project's default template (user picked "None" / "Always ask").
+    func clearDefaultTemplate(for projectId: UUID) {
+        guard let index = projects.firstIndex(where: { $0.id == projectId }) else { return }
+        projects[index].defaultTemplateId = nil
+        persist()
+    }
+
+    // MARK: - Session Status
+
+    /// Update a single session's global status (called by coordinators).
+    func updateSessionStatus(id: UUID, status: SessionStatus) {
+        globalStatuses[id] = status
+    }
+
+    /// Remove a session's global status entry (called on cleanup).
+    func removeSessionStatus(id: UUID) {
+        globalStatuses.removeValue(forKey: id)
     }
 
     // MARK: - Template Actions

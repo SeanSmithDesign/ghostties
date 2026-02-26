@@ -22,188 +22,186 @@ enum GhostCharacter: String, CaseIterable, Codable {
 
     /// 12×12 boolean grid defining the ghost's silhouette.
     /// `true` = filled pixel, `false` = transparent.
-    var pixelGrid: [[Bool]] {
-        switch self {
-        case .blinky:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, true,  true,  false, false, true,  true,  false, false, true,  true,  false],
-                [false, true,  true,  false, false, true,  true,  false, false, true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, true,  true,  false, false, true,  true,  false, true,  true],
-                [true,  false, false, false, true,  false, false, true,  false, false, false, true],
-            ]
-        case .pinky:
-            return [
-                [false, false, false, false, true,  true,  true,  true,  false, false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, true,  false, false, true,  true,  true,  true,  false, false, true,  false],
-                [false, true,  false, false, true,  true,  true,  true,  false, false, true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  false, false, false, false, false, false, false, false, false, false, true],
-            ]
-        case .inky:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, true,  true,  true,  false, false, false, false, true,  true,  true,  false],
-                [false, true,  true,  true,  false, false, false, false, true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  false, true,  true,  false, true,  true,  false, true,  true,  false, true],
-                [true,  false, false, true,  false, false, false, false, true,  false, false, true],
-            ]
-        case .clyde:
-            return [
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, true,  true,  true,  true,  false, true,  true,  true],
-                [true,  false, false, false, false, true,  true,  false, false, false, false, true],
-            ]
-        case .specter:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  false, false, false, true,  true,  true,  true,  false, false, false, true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  false, false, false, false, true,  true,  false, false, false, false, true],
-            ]
-        case .wisp:
-            return [
-                [false, false, false, false, true,  true,  true,  true,  false, false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, false, true,  true,  false, true,  true,  false, true,  true,  false, false],
-                [false, false, false, true,  false, false, false, false, true,  false, false, false],
-            ]
-        case .phantom:
-            return [
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  false, false, true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  false, false, true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  false, false, false, false, true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  false, true,  true,  true,  false, false, true,  true,  true,  false, true],
-                [true,  false, false, true,  false, false, false, false, true,  false, false, true],
-            ]
-        case .shade:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  true,  true,  true,  false, false, true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, true,  true,  true,  true,  true,  true,  false, true,  true],
-                [true,  false, false, false, true,  false, false, true,  false, false, false, true],
-            ]
-        case .haunt:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  false, false, true,  true,  true,  true,  true,  true,  false, false, true],
-                [true,  false, false, true,  true,  true,  true,  true,  true,  false, false, true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  false, false, false, false, false, false, false, false, false, false, true],
-            ]
-        case .wraith:
-            return [
-                [false, false, false, false, true,  true,  true,  true,  false, false, false, false],
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [false, false, true,  true,  true,  false, false, true,  true,  true,  false, false],
-                [false, false, false, true,  false, false, false, false, true,  false, false, false],
-            ]
-        case .banshee:
-            return [
-                [false, false, true,  true,  true,  true,  true,  true,  true,  true,  false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  false, false, false, true,  true,  true,  true,  false, false, false, true],
-                [true,  false, false, false, true,  true,  true,  true,  false, false, false, true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, false, false, false, false, true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  false, false, true,  true,  true,  true,  false, false, true,  true],
-                [true,  false, false, false, false, true,  true,  false, false, false, false, true],
-            ]
-        case .polter:
-            return [
-                [false, false, false, true,  true,  true,  true,  true,  true,  false, false, false],
-                [false, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  false],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  true,  true,  false, false, true,  true,  false, false, true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true],
-                [true,  true,  true,  true,  false, false, false, false, true,  true,  true,  true],
-                [true,  false, false, false, false, false, false, false, false, false, false, true],
-            ]
+    var pixelGrid: [[Bool]] { Self.grids[self]! }
+
+    /// Pre-computed grids for all characters (parsed once from compact string data).
+    private static let grids: [GhostCharacter: [[Bool]]] = {
+        var g: [GhostCharacter: [[Bool]]] = [:]
+        g[.blinky] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX.XX..XX.XX
+            X...X..X...X
+            """)
+        g[.pinky] = parseGrid("""
+            ....XXXX....
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .X..XXXX..X.
+            .X..XXXX..X.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXX..XX..XXX
+            X..........X
+            """)
+        g[.inky] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XXX....XXX.
+            .XXX....XXX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            X.XX.XX.XX.X
+            X..X....X..X
+            """)
+        g[.clyde] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            XX..XXXX..XX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXX.XXXX.XXX
+            X....XX....X
+            """)
+        g[.specter] = parseGrid("""
+            ...XXXXXX...
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            X...XXXX...X
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            X....XX....X
+            """)
+        g[.wisp] = parseGrid("""
+            ....XXXX....
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXX..XX..XXX
+            XXX..XX..XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .XXXXXXXXXX.
+            .XXXXXXXXXX.
+            ..XX.XX.XX..
+            ...X....X...
+            """)
+        g[.phantom] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XXX..X..XXXX
+            XXX..X..XXXX
+            XXXXXXXXXXXX
+            XXXX....XXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            X.XXX..XXX.X
+            X..X....X..X
+            """)
+        g[.shade] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XX..XXXX..XX
+            XX..XXXX..XX
+            XXXXX..XXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX.XXXXXX.XX
+            X...X..X...X
+            """)
+        g[.haunt] = parseGrid("""
+            ...XXXXXX...
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            X..XXXXXX..X
+            X..XXXXXX..X
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXX..XX..XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXX..XX..XXX
+            X..........X
+            """)
+        g[.wraith] = parseGrid("""
+            ....XXXX....
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            XX..XXXX..XX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .XXXXXXXXXX.
+            ..XXX..XXX..
+            ...X....X...
+            """)
+        g[.banshee] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            X...XXXX...X
+            X...XXXX...X
+            XXXXXXXXXXXX
+            XXX......XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            X....XX....X
+            """)
+        g[.polter] = parseGrid("""
+            ...XXXXXX...
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XXX..XX..XXX
+            XXX..XX..XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXX....XXXX
+            X..........X
+            """)
+        return g
+    }()
+
+    /// Parse a compact grid string ("X" = filled, "." = empty) into a boolean matrix.
+    private static func parseGrid(_ str: String) -> [[Bool]] {
+        str.split(separator: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).map { $0 == "X" }
         }
     }
 

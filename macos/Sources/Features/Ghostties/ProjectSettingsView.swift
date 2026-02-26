@@ -109,8 +109,12 @@ struct ProjectSettingsView: View {
             id: project.id,
             name: finalName,
             ghostCharacter: selectedGhost,
-            defaultTemplateId: .some(defaultTemplateId)
+            defaultTemplateId: defaultTemplateId
         )
+        // If user picked "Always ask" (nil), explicitly clear the default template.
+        if defaultTemplateId == nil {
+            store.clearDefaultTemplate(for: project.id)
+        }
         onDismiss()
     }
 }

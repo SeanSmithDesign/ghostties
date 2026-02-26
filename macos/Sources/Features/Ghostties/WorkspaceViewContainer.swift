@@ -47,13 +47,14 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        guard let window = window else { return }
         // Give the coordinator a reference to this view so it can discover
         // the window controller through the responder chain.
         coordinator.containerView = self
 
         // The workspace sidebar replaces the native tab bar — sessions are the new "tabs".
         // Disallow native tabbing to prevent a visual conflict (tab bar + sidebar).
-        window?.tabbingMode = .disallowed
+        window.tabbingMode = .disallowed
     }
 
     override var intrinsicContentSize: NSSize {

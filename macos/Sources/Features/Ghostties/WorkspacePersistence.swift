@@ -82,6 +82,15 @@ struct WorkspacePersistence {
         }
     }
 
+    /// Environment variable keys that should be stripped from loaded templates.
+    private static let dangerousEnvKeys: Set<String> = [
+        "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH",
+        "DYLD_FALLBACK_LIBRARY_PATH", "DYLD_FALLBACK_FRAMEWORK_PATH",
+        "LD_PRELOAD", "LD_LIBRARY_PATH",
+        "PATH", "HOME", "SHELL", "USER", "LOGNAME",
+        "PYTHONPATH", "NODE_PATH", "RUBYLIB", "GEM_HOME", "GEM_PATH",
+    ]
+
     /// Validates referential integrity of loaded state.
     static func validate(_ state: State) -> State {
         var validated = state
@@ -103,6 +112,12 @@ struct WorkspacePersistence {
         if let lastId = validated.lastSelectedProjectId,
            !knownProjectIds.contains(lastId) {
             validated.lastSelectedProjectId = nil
+        }
+
+        // Strip dangerous env keys from loaded templates.
+        for i in validated.templates.indices {
+            validated.templates[i].environmentVariables = validated.templates[i]
+                .environmentVariables.filter { !dangerousEnvKeys.contains($0.key.uppercased()) }
         }
 
         return validated

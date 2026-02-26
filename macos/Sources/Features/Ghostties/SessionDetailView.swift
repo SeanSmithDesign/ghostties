@@ -17,9 +17,6 @@ struct SessionDetailView: View {
     @State private var editingName: String = ""
     @FocusState private var renameFieldFocused: Bool
 
-    /// The session currently being dragged (for reorder).
-    @State private var draggingSessionId: UUID?
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -88,15 +85,15 @@ struct SessionDetailView: View {
                             isActive: coordinator.activeSessionId == session.id,
                             isEditing: editingSessionId == session.id,
                             editingName: editingSessionId == session.id ? $editingName : .constant(""),
-                            isRenameFocused: _renameFieldFocused,
+                            isRenameFocused: $renameFieldFocused,
                             onCommitRename: { commitRename(session: session) },
                             onCancelRename: { cancelRename() }
                         )
-                        .onTapGesture {
-                            coordinator.focusSession(id: session.id)
-                        }
                         .onTapGesture(count: 2) {
                             beginRename(session: session)
+                        }
+                        .onTapGesture {
+                            coordinator.focusSession(id: session.id)
                         }
                         .contextMenu {
                             Button("Rename") {
@@ -190,12 +187,9 @@ struct SessionDetailView: View {
         if let defaultId = project.defaultTemplateId,
            !NSEvent.modifierFlags.contains(.option),
            let template = store.templates.first(where: { $0.id == defaultId }) {
-            let session = store.addSession(
-                name: "\(template.name) \(sessions.count + 1)",
-                templateId: template.id,
-                projectId: project.id
-            )
-            coordinator.createSession(session: session, template: template, project: project)
+            Task {
+                await coordinator.createQuickSession(for: project, template: template)
+            }
         } else {
             showingTemplatePicker = true
         }
@@ -206,7 +200,9 @@ struct SessionDetailView: View {
             return
         }
         coordinator.clearRuntime(id: session.id)
-        coordinator.createSession(session: session, template: template, project: project)
+        Task {
+            await coordinator.createSession(session: session, template: template, project: project)
+        }
     }
 
     // MARK: - Rename
@@ -241,7 +237,7 @@ struct SessionRow: View {
     var isActive: Bool = false
     var isEditing: Bool = false
     @Binding var editingName: String
-    var isRenameFocused: FocusState<Bool>
+    var isRenameFocused: FocusState<Bool>.Binding
     var onCommitRename: () -> Void
     var onCancelRename: () -> Void
 
@@ -253,7 +249,7 @@ struct SessionRow: View {
                 TextField("Session name", text: $editingName)
                     .font(.system(size: 12))
                     .textFieldStyle(.plain)
-                    .focused(isRenameFocused.projectedValue)
+                    .focused(isRenameFocused)
                     .onSubmit { onCommitRename() }
                     .onExitCommand { onCancelRename() }
                     .onChange(of: isRenameFocused.wrappedValue) { focused in
@@ -272,7 +268,7 @@ struct SessionRow: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(minHeight: 32)
-        .background(isActive ? Color.accentColor.opacity(0.12) : Color.clear)
+        .background(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)

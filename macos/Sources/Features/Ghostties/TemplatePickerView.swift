@@ -136,13 +136,9 @@ struct TemplatePickerView: View {
     }
 
     private func createSession(from template: SessionTemplate) {
-        let sessionName = "\(template.name) — \(project.name)"
-        let session = store.addSession(
-            name: sessionName,
-            templateId: template.id,
-            projectId: project.id
-        )
-        coordinator.createSession(session: session, template: template, project: project)
+        Task {
+            await coordinator.createQuickSession(for: project, template: template)
+        }
         dismiss()
     }
 
@@ -237,11 +233,14 @@ struct TemplateEditForm: View {
         dismiss()
     }
 
-    /// Environment variable keys that could alter process loading behavior.
+    /// Environment variable keys that could alter process loading behavior or
+    /// override fundamental system paths.
     private static let dangerousEnvKeys: Set<String> = [
         "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH",
         "DYLD_FALLBACK_LIBRARY_PATH", "DYLD_FALLBACK_FRAMEWORK_PATH",
         "LD_PRELOAD", "LD_LIBRARY_PATH",
+        "PATH", "HOME", "SHELL", "USER", "LOGNAME",
+        "PYTHONPATH", "NODE_PATH", "RUBYLIB", "GEM_HOME", "GEM_PATH",
     ]
 
     /// Parses "KEY=VALUE" lines into a dictionary, ignoring malformed lines

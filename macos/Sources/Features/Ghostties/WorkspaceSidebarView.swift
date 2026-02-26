@@ -105,29 +105,19 @@ struct WorkspaceSidebarView: View {
     }
 
     /// Create a new session in the currently selected project.
-    /// If the project has a default template, creates immediately; otherwise the
-    /// SessionDetailView template picker handles it via notification (future enhancement).
+    /// If the project has a default template, creates immediately; otherwise
+    /// falls back to the Shell template for Cmd+Shift+T convenience.
     private func createNewSessionForSelectedProject() {
         guard let project = selectedProject else { return }
+        let template: SessionTemplate
         if let defaultId = project.defaultTemplateId,
-           let template = store.templates.first(where: { $0.id == defaultId }) {
-            let sessions = store.sessions(for: project.id)
-            let session = store.addSession(
-                name: "\(template.name) \(sessions.count + 1)",
-                templateId: template.id,
-                projectId: project.id
-            )
-            coordinator.createSession(session: session, template: template, project: project)
+           let defaultTemplate = store.templates.first(where: { $0.id == defaultId }) {
+            template = defaultTemplate
         } else {
-            // Fall back to Shell template for Cmd+Shift+T convenience.
-            let template = SessionTemplate.shell
-            let sessions = store.sessions(for: project.id)
-            let session = store.addSession(
-                name: "\(template.name) \(sessions.count + 1)",
-                templateId: template.id,
-                projectId: project.id
-            )
-            coordinator.createSession(session: session, template: template, project: project)
+            template = SessionTemplate.shell
+        }
+        Task {
+            await coordinator.createQuickSession(for: project, template: template)
         }
     }
 
