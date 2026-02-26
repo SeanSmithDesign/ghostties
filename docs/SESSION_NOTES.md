@@ -1,5 +1,50 @@
 # Session Notes — Ghostties
 
+## Feb 26, 2026
+
+### Design Work — Paper
+
+Converted the "Sidebar Polish v2 - Light Mode" artboard from dark mode colors to light mode, updated all sidebar text from Inter to SF Pro Text across all three design artboards.
+
+### Changes Made
+
+**Light Mode Conversion (artboard `Q3-0`):**
+- Window background: `#1D1D1D` → `#ffffff`
+- Sidebar background: initially set `#f2f2f7`, then removed (transparent) per user preference
+- Terminal panel: `#141414` → `#fafafa`, shadow lightened to `#0000000D`
+- Expanded project group: `#292929` → `#ffffff`
+- Selected session row: `#FFFFFF0F` → `#0000000A`
+- Primary text: `#F5F5F7` → `#1c1c1e`
+- Secondary text: `#FFFFFF80` → `#8e8e93`
+- Terminal output: `#FFFFFFB3` → `#1c1c1e`
+- Terminal cursor: `#FFFFFF99` → `#1c1c1e`
+- Toolbar SVG icons: white strokes → `#8e8e93`
+- Traffic lights, green prompt, ghost characters: unchanged
+
+**Font Update (Inter → SF Pro Text) across all artboards:**
+- Dark mode artboard (`1O-0`): 7 sidebar text nodes
+- Light mode artboard (`Q3-0`): 7 sidebar text nodes
+- Design System artboard (`9D-0`): 34 text nodes (headers, section labels, swatch names, typography samples)
+- Updated typography section title: "Typography — Inter" → "Typography — SF Pro Text"
+- SF Mono on terminal content and hex values preserved
+
+### Paper MCP Learnings
+
+1. **No batch find-and-replace**: Paper doesn't have `replace_all_matching_properties` like Pencil. Must identify each node individually via `get_computed_styles` and update with `update_styles`.
+2. **SVG attributes aren't CSS**: Can't use `update_styles` to change SVG stroke/fill colors. Must use `write_html` with `mode: "replace"` to swap the entire SVG element.
+3. **Efficient discovery workflow**: `get_tree_summary` (depth 5) → `get_computed_styles` (batch node IDs) → `update_styles` (batch updates). This 3-step pattern covers most bulk changes.
+4. **Swatch pattern in design system**: Each color swatch frame has 3 children: Rectangle (color), Text (hex value, SF Mono), Text (name label, was Inter). Consistent structure makes batch updates predictable.
+5. **Hidden backgrounds**: The expanded project container (`QY-0`) had its own `backgroundColor: #292929` that wasn't obvious from the artboard-level view. Always check container backgrounds when converting themes.
+6. **Font family strings**: Paper accepts short font names like `"SF Pro Text"` in `update_styles` — no need for the full `"SFProText-Regular", "SF Pro Text"` fallback chain.
+
+### Notes for Next Session
+- Light mode artboard is fully converted and verified
+- All three artboards now use SF Pro Text for UI labels
+- The two modified Swift files (`WorkspaceLayout.swift`, `WorkspaceViewContainer.swift`) in git are unrelated to this design session
+- 7 manual testing findings from Feb 20-22 still pending
+
+---
+
 ## Feb 25, 2026
 
 ### Features Implemented
