@@ -98,7 +98,7 @@ final class SessionCoordinator: ObservableObject {
 
     /// Create a session using the project's default or specified template with auto-generated naming.
     ///
-    /// Shared helper used by SessionDetailView, WorkspaceSidebarView, and TemplatePickerView
+    /// Shared helper used by ProjectDisclosureRow, WorkspaceSidebarView, and TemplatePickerView
     /// to avoid duplicating session-creation logic.
     @discardableResult
     func createQuickSession(for project: Project, template: SessionTemplate) async -> Bool {

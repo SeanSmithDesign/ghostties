@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One of 12 pixel-art ghost characters assignable to a project.
+/// One of 24 pixel-art ghost characters assignable to a project.
 ///
 /// Each case owns a 12×12 boolean grid that defines its silhouette.
 /// `drawPath(in:)` renders the grid as filled rectangles within a SwiftUI
@@ -19,6 +19,18 @@ enum GhostCharacter: String, CaseIterable, Codable {
     case wraith
     case banshee
     case polter
+    case ember
+    case gloom
+    case spike
+    case drift
+    case hex
+    case chill
+    case fang
+    case flicker
+    case mist
+    case howl
+    case jinx
+    case dusk
 
     /// 12×12 boolean grid defining the ghost's silhouette.
     /// `true` = filled pixel, `false` = transparent.
@@ -195,6 +207,174 @@ enum GhostCharacter: String, CaseIterable, Codable {
             XXXX....XXXX
             X..........X
             """)
+        g[.ember] = parseGrid("""
+            ....XXXX....
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .XXXXXXXXXX.
+            .XX.XXXX.XX.
+            ..X..XX..X..
+            .....XX.....
+            """)
+        g[.gloom] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            XX..XXXX..XX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            X.XX.XX.XX.X
+            X..X....X..X
+            """)
+        g[.spike] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            X.XXXXXXXX.X
+            X..XXXXXX..X
+            X...XXXX...X
+            """)
+        g[.drift] = parseGrid("""
+            .....XXXXX..
+            ...XXXXXXXX.
+            ..XXXXXXXXXX
+            .XXXXXXXXXXX
+            .XX..XX..XXX
+            .XX..XX..XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXX.
+            .XXXX..XXX..
+            ...XX....X..
+            """)
+        g[.hex] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX.XX..XX.XX
+            XX.XX..XX.XX
+            XXXXXXXXXXXX
+            XXX.XX.XXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .X.XX..XX.X.
+            ....X..X....
+            """)
+        g[.chill] = parseGrid("""
+            ....XXXX....
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XXX..XX..XXX
+            XXX..XX..XXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .XXXXXXXXXX.
+            ..XXXXXXXX..
+            ....XXXX....
+            """)
+        g[.fang] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX.X....X.XX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX.XX..XX.XX
+            X...X..X...X
+            """)
+        g[.flicker] = parseGrid("""
+            .....XX.....
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            .XXXXXXXXXX.
+            .XXXXXXXXXX.
+            ..XXXXXXXX..
+            ..XXXXXXXX..
+            ...XX..XX...
+            ....X..X....
+            """)
+        g[.mist] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            XX..XXXX..XX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            .XXXXXXXXXX.
+            ..XXX..XXX..
+            ...XX..XX...
+            """)
+        g[.howl] = parseGrid("""
+            ...XXXXXX...
+            .XXXXXXXXXX.
+            .XXXXXXXXXX.
+            .XX..XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXX......XXX
+            XX........XX
+            XXX......XXX
+            XXXXXXXXXXXX
+            XX.XX..XX.XX
+            X..........X
+            """)
+        g[.jinx] = parseGrid("""
+            ...XXXXXX...
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            .XXX.XX..XX.
+            .XXX.XX..XX.
+            .XX..XX..XX.
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXX.XXXX.XXX
+            X....XX....X
+            """)
+        g[.dusk] = parseGrid("""
+            ..XXXXXXXX..
+            .XXXXXXXXXX.
+            XXXXXXXXXXXX
+            XXX..XXXXXXX
+            XX...XXXXXXX
+            XXX..XXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XXXXXXXXXXXX
+            XX..XXXX..XX
+            X....XX....X
+            """)
         return g
     }()
 
@@ -230,7 +410,7 @@ enum GhostCharacter: String, CaseIterable, Codable {
         return path
     }
 
-    /// Pick a random ghost that isn't already in use, or any random ghost if all 12 are taken.
+    /// Pick a random ghost that isn't already in use, or any random ghost if all 24 are taken.
     static func randomUnused(excluding used: Set<GhostCharacter>) -> GhostCharacter {
         let available = allCases.filter { !used.contains($0) }
         return (available.isEmpty ? allCases : available).randomElement()!

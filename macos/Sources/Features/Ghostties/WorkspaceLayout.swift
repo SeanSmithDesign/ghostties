@@ -2,23 +2,14 @@ import Foundation
 
 /// Shared layout constants for the workspace sidebar.
 enum WorkspaceLayout {
-    /// Width of the collapsed icon rail (icons only).
-    static let collapsedRailWidth: CGFloat = 52
-
-    /// Width of the expanded icon rail (icons + labels).
-    static let expandedRailWidth: CGFloat = 220
-
-    /// Total width of the sidebar container (matches expanded rail).
+    /// Width of the sidebar panel.
     static let sidebarWidth: CGFloat = 220
 
-    /// Inset from top, leading, and bottom window edges for the floating panel.
-    static let sidebarInset: CGFloat = 8
+    /// Height reserved at top for window traffic light controls.
+    static let titlebarSpacerHeight: CGFloat = 38
 
-    /// Corner radius of the floating sidebar container.
-    static let sidebarCornerRadius: CGFloat = 12
-
-    /// Gap between the sidebar trailing edge and terminal content (replaces divider).
-    static let sidebarTerminalGap: CGFloat = 6
+    /// Corner radius on the terminal's leading edge (top-left, bottom-left).
+    static let terminalCornerRadius: CGFloat = 10
 }
 
 // MARK: - Workspace Notifications

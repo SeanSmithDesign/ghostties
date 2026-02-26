@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// The full sidebar: icon rail overlays a detail panel within a fixed-width container.
+/// Single-column disclosure-style sidebar showing projects with expandable session lists.
 ///
-/// Layout strategy: ZStack with .leading alignment. The detail panel is positioned
-/// after a 52pt spacer (to avoid the collapsed rail). The icon rail sits on top and
-/// expands from 52pt to 220pt on hover, covering the detail panel with an opaque
-/// background. This keeps the sidebar width fixed so the terminal never re-layouts.
+/// Replaces the previous two-column ZStack layout (icon rail + detail panel) with a
+/// Finder/Arc-style list where projects are expandable rows that reveal sessions inline.
+/// Multiple projects can be expanded simultaneously.
 struct WorkspaceSidebarView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var coordinator: SessionCoordinator
@@ -13,24 +12,32 @@ struct WorkspaceSidebarView: View {
     /// Per-window selection state — each window can focus a different project.
     @State private var selectedProjectId: UUID?
 
+    /// Tracks which projects are expanded (per-window, not persisted).
+    @State private var expandedProjectIds: Set<UUID> = []
+
     var body: some View {
-        ZStack(alignment: .leading) {
-            // Detail layer: always present, offset past the collapsed rail
-            HStack(spacing: 0) {
-                Spacer()
-                    .frame(width: WorkspaceLayout.collapsedRailWidth)
-                Rectangle()
-                    .fill(.quaternary)
-                    .frame(width: 0.5)
-                detailPanel
+        VStack(spacing: 0) {
+            // Titlebar toolbar: action buttons right of traffic lights
+            titlebarToolbar
+
+            // Scrollable disclosure list
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(store.sortedProjects) { project in
+                        ProjectDisclosureRow(
+                            project: project,
+                            isExpanded: expandedBinding(for: project.id),
+                            selectedProjectId: $selectedProjectId
+                        )
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
             }
 
-            // Icon rail: overlays the detail panel when expanded
-            IconRailView(selectedProjectId: $selectedProjectId)
+            Spacer(minLength: 0)
         }
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: WorkspaceLayout.sidebarCornerRadius, style: .continuous))
-        .shadow(color: .black.opacity(0.08), radius: 4, x: 1, y: 0)
         .onAppear {
             // Restore persisted project selection, or default to the first project.
             if selectedProjectId == nil {
@@ -41,6 +48,8 @@ struct WorkspaceSidebarView: View {
                     selectedProjectId = store.sortedProjects.first?.id
                 }
             }
+            // Auto-expand the project containing the active session.
+            autoExpandActiveProject()
         }
         .onChange(of: selectedProjectId) { newId in
             store.lastSelectedProjectId = newId
@@ -63,50 +72,69 @@ struct WorkspaceSidebarView: View {
         }
     }
 
-    // MARK: - Detail Panel
+    // MARK: - Titlebar Toolbar
+
+    private var titlebarToolbar: some View {
+        HStack {
+            Spacer()
+            Button(action: presentFolderPicker) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Add project")
+
+            Button(action: toggleSidebar) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Toggle sidebar")
+        }
+        .padding(.horizontal, 12)
+        .frame(height: WorkspaceLayout.titlebarSpacerHeight)
+    }
+
+    // MARK: - Helpers
+
+    private func expandedBinding(for id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { expandedProjectIds.contains(id) },
+            set: { if $0 { expandedProjectIds.insert(id) } else { expandedProjectIds.remove(id) } }
+        )
+    }
+
+    /// Auto-expand the project that contains the currently active session.
+    private func autoExpandActiveProject() {
+        guard let activeId = coordinator.activeSessionId,
+              let session = store.sessions.first(where: { $0.id == activeId }) else { return }
+        expandedProjectIds.insert(session.projectId)
+    }
+
+    // MARK: - Actions
 
     private var selectedProject: Project? {
         guard let id = selectedProjectId else { return nil }
         return store.projects.first { $0.id == id }
     }
 
-    @ViewBuilder
-    private var detailPanel: some View {
-        if let project = selectedProject {
-            SessionDetailView(project: project)
-        } else {
-            emptyState
-        }
+    private func toggleSidebar() {
+        NSApp.sendAction(
+            #selector(TerminalController.toggleWorkspaceSidebar(_:)),
+            to: nil, from: nil
+        )
     }
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "folder.badge.plus")
-                .font(.system(size: 32))
-                .foregroundStyle(.secondary)
-
-            Text("Add a project")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-
-            Button("Add Project", action: presentFolderPicker)
-                .buttonStyle(.bordered)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-    }
-
-    // MARK: - Actions
 
     private func presentFolderPicker() {
         if let id = store.addProjectViaFolderPicker() {
             selectedProjectId = id
+            expandedProjectIds.insert(id)
         }
     }
 
     /// Create a new session in the currently selected project.
-    /// If the project has a default template, creates immediately; otherwise
-    /// falls back to the Shell template for Cmd+Shift+T convenience.
     private func createNewSessionForSelectedProject() {
         guard let project = selectedProject else { return }
         let template: SessionTemplate
@@ -116,12 +144,15 @@ struct WorkspaceSidebarView: View {
         } else {
             template = SessionTemplate.shell
         }
+        // Auto-expand the target project so the new session is visible.
+        expandedProjectIds.insert(project.id)
         Task {
             await coordinator.createQuickSession(for: project, template: template)
         }
     }
 
-    /// Move selection to the next or previous project in the sorted list.
+    /// Move selection to the next or previous project in the sorted list,
+    /// auto-expanding the target project.
     private func selectAdjacentProject(offset: Int) {
         let sorted = store.sortedProjects
         guard !sorted.isEmpty else { return }
@@ -129,10 +160,13 @@ struct WorkspaceSidebarView: View {
         guard let currentId = selectedProjectId,
               let currentIndex = sorted.firstIndex(where: { $0.id == currentId }) else {
             selectedProjectId = sorted.first?.id
+            if let id = sorted.first?.id { expandedProjectIds.insert(id) }
             return
         }
 
         let newIndex = (currentIndex + offset + sorted.count) % sorted.count
-        selectedProjectId = sorted[newIndex].id
+        let targetId = sorted[newIndex].id
+        selectedProjectId = targetId
+        expandedProjectIds.insert(targetId)
     }
 }

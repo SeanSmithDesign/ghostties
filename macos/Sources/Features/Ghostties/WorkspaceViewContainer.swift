@@ -4,7 +4,7 @@ import SwiftUI
 /// An NSView that contains the workspace sidebar alongside the existing terminal view.
 /// This replaces TerminalViewContainer as the window's contentView.
 ///
-/// The sidebar is a SwiftUI view hierarchy (icon rail + detail panel) embedded in an
+/// The sidebar is a SwiftUI view hierarchy (disclosure list) embedded in an
 /// NSHostingView. The terminal side is the standard TerminalViewContainer, untouched.
 /// Both are arranged via Auto Layout with an animated sidebar width constraint.
 ///
@@ -55,14 +55,18 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         // The workspace sidebar replaces the native tab bar — sessions are the new "tabs".
         // Disallow native tabbing to prevent a visual conflict (tab bar + sidebar).
         window.tabbingMode = .disallowed
+
+        // Extend content under titlebar — traffic lights appear inside the sidebar panel.
+        window.styleMask.insert(.fullSizeContentView)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
     }
 
     override var intrinsicContentSize: NSSize {
         let termSize = terminalContainer.intrinsicContentSize
         guard termSize.width != NSView.noIntrinsicMetric else { return termSize }
         let sidebarWidth = sidebarWidthConstraint?.constant ?? WorkspaceLayout.sidebarWidth
-        let extra = WorkspaceLayout.sidebarInset + WorkspaceLayout.sidebarTerminalGap
-        return NSSize(width: termSize.width + sidebarWidth + extra, height: termSize.height)
+        return NSSize(width: termSize.width + sidebarWidth, height: termSize.height)
     }
 
     // MARK: - Sidebar Toggle
@@ -75,17 +79,21 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     /// Toggle sidebar visibility with animation.
     @objc func toggleSidebar() {
         let hiding = isSidebarVisible
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             sidebarWidthConstraint.animator().constant = hiding ? 0 : WorkspaceLayout.sidebarWidth
         }
+        // Rounded leading corners when sidebar visible, square when hidden.
+        terminalContainer.layer?.cornerRadius = hiding ? 0 : WorkspaceLayout.terminalCornerRadius
         WorkspaceStore.shared.sidebarVisible = !hiding
     }
 
     // MARK: - Layout
 
     private func setup() {
+        // Z-order: sidebar behind, terminal on top.
         addSubview(sidebarHostingView)
         addSubview(terminalContainer)
 
@@ -93,26 +101,29 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         terminalContainer.translatesAutoresizingMaskIntoConstraints = false
 
         // Read persisted sidebar visibility.
-        let initialWidth: CGFloat = WorkspaceStore.shared.sidebarVisible
-            ? WorkspaceLayout.sidebarWidth : 0
+        let sidebarVisible = WorkspaceStore.shared.sidebarVisible
+        let initialWidth: CGFloat = sidebarVisible ? WorkspaceLayout.sidebarWidth : 0
 
         sidebarWidthConstraint = sidebarHostingView.widthAnchor.constraint(equalToConstant: initialWidth)
 
-        let inset = WorkspaceLayout.sidebarInset
-        let gap = WorkspaceLayout.sidebarTerminalGap
-
         NSLayoutConstraint.activate([
-            // Sidebar: inset from top, leading, bottom (floating panel)
-            sidebarHostingView.topAnchor.constraint(equalTo: topAnchor, constant: inset),
-            sidebarHostingView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            sidebarHostingView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
+            // Sidebar: flush to window edges (no insets).
+            sidebarHostingView.topAnchor.constraint(equalTo: topAnchor),
+            sidebarHostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            sidebarHostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
             sidebarWidthConstraint,
 
-            // Terminal: gap after sidebar, pinned to all other edges
+            // Terminal: leading edge meets sidebar trailing, extends under titlebar.
             terminalContainer.topAnchor.constraint(equalTo: topAnchor),
-            terminalContainer.leadingAnchor.constraint(equalTo: sidebarHostingView.trailingAnchor, constant: gap),
+            terminalContainer.leadingAnchor.constraint(equalTo: sidebarHostingView.trailingAnchor),
             terminalContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
             terminalContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
+
+        // Terminal rounded leading corners (top-left, bottom-left).
+        terminalContainer.wantsLayer = true
+        terminalContainer.layer?.cornerRadius = sidebarVisible ? WorkspaceLayout.terminalCornerRadius : 0
+        terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        terminalContainer.layer?.masksToBounds = true
     }
 }
