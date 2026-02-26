@@ -11,6 +11,9 @@ struct IconRailView: View {
     @State private var isExpanded = false
     @State private var hoverTask: Task<Void, Never>?
 
+    /// Project whose settings popover is currently shown (nil = hidden).
+    @State private var settingsProject: Project?
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -24,7 +27,7 @@ struct IconRailView: View {
         .padding(.vertical, 8)
         .frame(width: isExpanded ? WorkspaceLayout.expandedRailWidth : WorkspaceLayout.collapsedRailWidth)
         .frame(maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(.thickMaterial)
         .animation(
             reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75),
             value: isExpanded
@@ -57,6 +60,10 @@ struct IconRailView: View {
                 selectedProjectId = project.id
             }
             .contextMenu {
+                Button("Settings\u{2026}") {
+                    settingsProject = project
+                }
+                Divider()
                 Button(project.isPinned ? "Unpin" : "Pin") {
                     store.togglePin(id: project.id)
                 }
@@ -64,6 +71,18 @@ struct IconRailView: View {
                 Button("Remove", role: .destructive) {
                     store.removeProject(id: project.id)
                 }
+            }
+            .popover(
+                isPresented: Binding(
+                    get: { settingsProject?.id == project.id },
+                    set: { if !$0 { settingsProject = nil } }
+                ),
+                arrowEdge: .trailing
+            ) {
+                ProjectSettingsView(project: project) {
+                    settingsProject = nil
+                }
+                .environmentObject(store)
             }
         }
     }

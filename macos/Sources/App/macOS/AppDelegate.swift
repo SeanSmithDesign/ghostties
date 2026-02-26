@@ -630,11 +630,21 @@ class AppDelegate: NSObject,
         prevItem.keyEquivalentModifierMask = [.command, .shift]
         prevItem.setImageIfDesired(systemSymbolName: "chevron.left")
 
+        // "New Session" — Cmd+Shift+T
+        let newSessionItem = NSMenuItem(
+            title: "New Session",
+            action: #selector(TerminalController.newWorkspaceSession(_:)),
+            keyEquivalent: "t"
+        )
+        newSessionItem.keyEquivalentModifierMask = [.command, .shift]
+        newSessionItem.setImageIfDesired(systemSymbolName: "plus.rectangle")
+
         // Insert workspace group at the top of the View menu.
         viewMenu.insertItem(sidebarItem, at: 0)
         viewMenu.insertItem(nextItem, at: 1)
         viewMenu.insertItem(prevItem, at: 2)
-        viewMenu.insertItem(NSMenuItem.separator(), at: 3)
+        viewMenu.insertItem(newSessionItem, at: 3)
+        viewMenu.insertItem(NSMenuItem.separator(), at: 4)
 
     }
 

@@ -630,6 +630,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
+        // When a workspace sidebar is present, don't close the window or tab
+        // for root surface closure — the SessionCoordinator handles lifecycle.
+        if window?.contentView is WorkspaceViewContainer<TerminalController> {
+            super.closeSurface(node, withConfirmation: withConfirmation)
+            return
+        }
+
         // More than 1 window means we have tabs and we're closing a tab
         if window?.tabGroup?.windows.count ?? 0 > 1 {
             closeTab(nil)
@@ -1201,6 +1208,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction func selectPreviousProject(_ sender: Any?) {
         NotificationCenter.default.post(name: .workspaceSelectPreviousProject, object: window)
+    }
+
+    @IBAction func newWorkspaceSession(_ sender: Any?) {
+        NotificationCenter.default.post(name: .workspaceNewSession, object: window)
     }
 
     // MARK: First Responder

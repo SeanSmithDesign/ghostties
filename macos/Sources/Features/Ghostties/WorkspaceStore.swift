@@ -16,6 +16,11 @@ final class WorkspaceStore: ObservableObject {
     @Published private(set) var sessions: [AgentSession] = []
     @Published private(set) var templates: [SessionTemplate] = []
 
+    /// Global session status — shared across all windows so that a session
+    /// running in Window A shows a green dot in Window B's sidebar too.
+    /// Coordinators write to this; views read from it.
+    @Published var globalStatuses: [UUID: SessionStatus] = [:]
+
     /// Whether the sidebar should be visible. Persisted across launches.
     var sidebarVisible: Bool = true {
         didSet { if oldValue != sidebarVisible { persist() } }
@@ -52,10 +57,22 @@ final class WorkspaceStore: ObservableObject {
 
     // MARK: - Computed (Sessions)
 
-    /// Sessions for a specific project, ordered by name.
+    /// Sessions for a specific project, ordered by sortOrder (then name for ties/nils).
+    ///
+    /// Sessions with an explicit `sortOrder` come first (ascending), followed by
+    /// sessions without one (alphabetical). This preserves backward compatibility —
+    /// old sessions that predate drag-and-drop sort alphabetically until reordered.
     func sessions(for projectId: UUID) -> [AgentSession] {
         sessions.filter { $0.projectId == projectId }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .sorted { a, b in
+                switch (a.sortOrder, b.sortOrder) {
+                case let (lhs?, rhs?): return lhs < rhs
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil):
+                    return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                }
+            }
     }
 
     // MARK: - Project Actions
@@ -69,17 +86,26 @@ final class WorkspaceStore: ObservableObject {
             return
         }
 
+        let usedGhosts = Set(projects.compactMap(\.ghostCharacter))
         let project = Project(
             name: url.lastPathComponent,
             rootPath: path,
-            isPinned: true
+            isPinned: true,
+            ghostCharacter: GhostCharacter.randomUnused(excluding: usedGhosts)
         )
         projects.append(project)
         persist()
     }
 
     func removeProject(id: UUID) {
-        // Also remove sessions belonging to this project.
+        // Notify coordinators so they can close running sessions before we delete records.
+        NotificationCenter.default.post(
+            name: .workspaceProjectWillBeRemoved,
+            object: nil,
+            userInfo: ["projectId": id]
+        )
+
+        // Remove sessions belonging to this project, then the project itself.
         sessions.removeAll { $0.projectId == id }
         projects.removeAll { $0.id == id }
         if lastSelectedProjectId == id { lastSelectedProjectId = nil }
@@ -96,7 +122,14 @@ final class WorkspaceStore: ObservableObject {
 
     @discardableResult
     func addSession(name: String, templateId: UUID, projectId: UUID) -> AgentSession {
-        let session = AgentSession(name: name, templateId: templateId, projectId: projectId)
+        let maxOrder = sessions.filter { $0.projectId == projectId }
+            .compactMap(\.sortOrder).max() ?? -1
+        let session = AgentSession(
+            name: name,
+            templateId: templateId,
+            projectId: projectId,
+            sortOrder: maxOrder + 1
+        )
         sessions.append(session)
         persist()
         return session
@@ -104,6 +137,58 @@ final class WorkspaceStore: ObservableObject {
 
     func removeSession(id: UUID) {
         sessions.removeAll { $0.id == id }
+        persist()
+    }
+
+    /// Rename a session in place.
+    func renameSession(id: UUID, name: String) {
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].name = name
+        persist()
+    }
+
+    /// Move a session to a new position within its project.
+    func moveSession(id: UUID, toIndex newIndex: Int, inProject projectId: UUID) {
+        var projectSessions = sessions(for: projectId)
+        guard let fromIndex = projectSessions.firstIndex(where: { $0.id == id }),
+              newIndex >= 0, newIndex < projectSessions.count else { return }
+
+        let moved = projectSessions.remove(at: fromIndex)
+        projectSessions.insert(moved, at: newIndex)
+
+        // Reassign sortOrder values for all sessions in this project.
+        for (order, session) in projectSessions.enumerated() {
+            if let globalIndex = sessions.firstIndex(where: { $0.id == session.id }) {
+                sessions[globalIndex].sortOrder = order
+            }
+        }
+        persist()
+    }
+
+    /// Move a session up one position within its project.
+    func moveSessionUp(id: UUID, inProject projectId: UUID) {
+        let projectSessions = sessions(for: projectId)
+        guard let index = projectSessions.firstIndex(where: { $0.id == id }),
+              index > 0 else { return }
+        moveSession(id: id, toIndex: index - 1, inProject: projectId)
+    }
+
+    /// Move a session down one position within its project.
+    func moveSessionDown(id: UUID, inProject projectId: UUID) {
+        let projectSessions = sessions(for: projectId)
+        guard let index = projectSessions.firstIndex(where: { $0.id == id }),
+              index < projectSessions.count - 1 else { return }
+        moveSession(id: id, toIndex: index + 1, inProject: projectId)
+    }
+
+    // MARK: - Project Mutation
+
+    /// Update a project's display name, ghost character, and/or default template.
+    func updateProject(id: UUID, name: String? = nil, ghostCharacter: GhostCharacter? = nil, defaultTemplateId: UUID?? = nil) {
+        guard let index = projects.firstIndex(where: { $0.id == id }) else { return }
+        if let name { projects[index].name = name }
+        if let ghost = ghostCharacter { projects[index].ghostCharacter = ghost }
+        if let templateId = defaultTemplateId { projects[index].defaultTemplateId = templateId }
         persist()
     }
 

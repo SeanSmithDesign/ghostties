@@ -12,16 +12,33 @@ struct AgentSession: Identifiable, Codable, Hashable {
     var templateId: UUID
     var projectId: UUID
 
+    /// Explicit ordering within a project. Nil means this session predates
+    /// drag-and-drop reorder and will be sorted alphabetically.
+    var sortOrder: Int?
+
     init(
         id: UUID = UUID(),
         name: String,
         templateId: UUID,
-        projectId: UUID
+        projectId: UUID,
+        sortOrder: Int? = nil
     ) {
         self.id = id
         self.name = name
         self.templateId = templateId
         self.projectId = projectId
+        self.sortOrder = sortOrder
+    }
+
+    // Custom decoder so existing workspace.json files (without sortOrder)
+    // load without error.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.templateId = try container.decode(UUID.self, forKey: .templateId)
+        self.projectId = try container.decode(UUID.self, forKey: .projectId)
+        self.sortOrder = try container.decodeIfPresent(Int.self, forKey: .sortOrder)
     }
 }
 

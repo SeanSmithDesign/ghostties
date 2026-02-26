@@ -19,13 +19,18 @@ struct WorkspaceSidebarView: View {
             HStack(spacing: 0) {
                 Spacer()
                     .frame(width: WorkspaceLayout.collapsedRailWidth)
-                Divider()
+                Rectangle()
+                    .fill(.quaternary)
+                    .frame(width: 0.5)
                 detailPanel
             }
 
             // Icon rail: overlays the detail panel when expanded
             IconRailView(selectedProjectId: $selectedProjectId)
         }
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: WorkspaceLayout.sidebarCornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.08), radius: 4, x: 1, y: 0)
         .onAppear {
             // Restore persisted project selection, or default to the first project.
             if selectedProjectId == nil {
@@ -39,6 +44,10 @@ struct WorkspaceSidebarView: View {
         }
         .onChange(of: selectedProjectId) { newId in
             store.lastSelectedProjectId = newId
+            // When the user clicks a different project, auto-focus its last active session.
+            if let projectId = newId {
+                coordinator.focusLastSession(forProject: projectId)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectNextProject)) { notification in
             guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
@@ -47,6 +56,10 @@ struct WorkspaceSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectPreviousProject)) { notification in
             guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
             selectAdjacentProject(offset: -1)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .workspaceNewSession)) { notification in
+            guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
+            createNewSessionForSelectedProject()
         }
     }
 
@@ -88,6 +101,33 @@ struct WorkspaceSidebarView: View {
     private func presentFolderPicker() {
         if let id = store.addProjectViaFolderPicker() {
             selectedProjectId = id
+        }
+    }
+
+    /// Create a new session in the currently selected project.
+    /// If the project has a default template, creates immediately; otherwise the
+    /// SessionDetailView template picker handles it via notification (future enhancement).
+    private func createNewSessionForSelectedProject() {
+        guard let project = selectedProject else { return }
+        if let defaultId = project.defaultTemplateId,
+           let template = store.templates.first(where: { $0.id == defaultId }) {
+            let sessions = store.sessions(for: project.id)
+            let session = store.addSession(
+                name: "\(template.name) \(sessions.count + 1)",
+                templateId: template.id,
+                projectId: project.id
+            )
+            coordinator.createSession(session: session, template: template, project: project)
+        } else {
+            // Fall back to Shell template for Cmd+Shift+T convenience.
+            let template = SessionTemplate.shell
+            let sessions = store.sessions(for: project.id)
+            let session = store.addSession(
+                name: "\(template.name) \(sessions.count + 1)",
+                templateId: template.id,
+                projectId: project.id
+            )
+            coordinator.createSession(session: session, template: template, project: project)
         }
     }
 
