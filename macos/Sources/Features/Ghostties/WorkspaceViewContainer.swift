@@ -277,8 +277,9 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         }
 
         // 4. Animate constraints, widths, alphas.
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = reduceMotion ? 0 : 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
 
             switch newMode {

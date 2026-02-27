@@ -34,6 +34,7 @@ struct WorkspaceSidebarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             }
+            .accessibilityLabel("Projects")
 
             Spacer(minLength: 0)
         }
@@ -83,6 +84,7 @@ struct WorkspaceSidebarView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .focusable()
             .accessibilityLabel("Add project")
 
             Button(action: toggleSidebar) {
@@ -91,6 +93,7 @@ struct WorkspaceSidebarView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .focusable()
             .accessibilityLabel("Toggle sidebar")
         }
         .padding(.horizontal, 12)

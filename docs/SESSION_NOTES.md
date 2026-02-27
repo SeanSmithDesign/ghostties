@@ -1,5 +1,61 @@
 # Session Notes — Ghostties
 
+## Feb 26, 2026 (Evening)
+
+### 3-State Sidebar State Machine + Code Review + Design Review
+
+Implemented the full sidebar state machine (pinned/closed/overlay), ran a 6-agent code review, fixed all findings, and ran a design quality review with fixes.
+
+### Features Implemented
+
+1. **3-state sidebar state machine**: Replaced boolean `isSidebarVisible` with `SidebarMode` enum (`.pinned`, `.closed`, `.overlay`) across 4 files
+   - Traffic lights hidden when sidebar closed
+   - Hover-to-reveal overlay via NSTrackingArea (10pt left edge trigger)
+   - Centralized `transitionTo()` method with 8-step state transition
+   - Dual mutually-exclusive leading constraints for pinned vs overlay/closed
+   - Overlay z-ordering via `layer.zPosition`
+   - Window resign auto-dismisses overlay
+   - Backward-compatible persistence (old `sidebarVisible: Bool` → new `sidebarMode: SidebarMode`)
+
+2. **Code review remediation (6 findings)**: Fixed all P1/P2/P3 from 6-agent review
+   - P1-007: Added explicit `shadowPath` in `layout()` for GPU performance
+   - P1-008: Added `deinit` + `viewDidMoveToWindow` observer cleanup
+   - P1-009: Updated persistence tests for new `sidebarMode` API + 3 new tests (legacy migration, invalid raw value)
+   - P2-010: Toggle `isHidden` on NSVisualEffectViews when inactive (compositing fix)
+   - P2-011: Decode `SidebarMode` as raw `Int` then safe-construct (prevents data wipe on invalid value)
+   - P3-012: Simplified mouse handlers, cached titlebar text field, `.removeDuplicates()`, removed zone userInfo
+
+3. **Design quality review (score 79→85/100)**: Fixed 3 a11y warnings
+   - Added `.accessibilityLabel("Projects")` to sidebar ScrollView
+   - Added `.focusable()` to toolbar buttons
+   - Added reduced motion check (`accessibilityDisplayShouldReduceMotion`)
+
+4. **Solution docs**: Documented 3-state sidebar pattern and Codable enum hardening
+
+### Files Modified
+- `WorkspaceLayout.swift` — `SidebarMode` enum, `overlayTriggerWidth` constant
+- `WorkspacePersistence.swift` — `sidebarMode` replaces `sidebarVisible`, backward-compat decoding, raw Int hardening
+- `WorkspaceStore.swift` — `sidebarMode` property, overlay→closed on persist
+- `WorkspaceViewContainer.swift` — Full state machine rewrite with all review fixes
+- `WorkspacePersistenceTests.swift` — Updated API + 3 new tests
+- `WorkspaceSidebarView.swift` — a11y fixes (ScrollView label, focusable buttons)
+
+### New Files Created
+- `docs/solutions/architecture/sidebar-3-state-machine-overlay-pattern.md`
+- `docs/solutions/logic-errors/codable-enum-raw-value-wipes-state.md`
+- `todos/007-012` — 6 review finding files (all marked complete)
+
+### Commits
+- `ecb7f04` feat(sidebar): 3-state machine (pinned/closed/overlay) with review fixes
+- `25b5511` docs: add solution docs and mark review todos complete
+
+### Notes for Next Session
+- Design quality score: 85/100 (4 suggestions remain — all judgment calls)
+- App built and launches successfully
+- Manual testing checklist: pinned↔closed toggle, hover overlay trigger/dismiss, overlay→pinned promotion, window resign dismiss, dark mode, persistence round-trip
+
+---
+
 ## Feb 26, 2026
 
 ### Design Work — Paper
