@@ -76,7 +76,7 @@ export const GhostiesAnimation: React.FC = () => {
   const totalPyramidHeight = 4 * ROW_HEIGHT - GHOST_GAP;
   const textAreaHeight = 280;
   const availableHeight = height - textAreaHeight;
-  const pyramidTop = (availableHeight - totalPyramidHeight) / 2 + 10;
+  const pyramidTop = (availableHeight - totalPyramidHeight) / 2 + 30;
 
   // Terminal text — bottom area
   const textLeft = 60;
@@ -145,7 +145,7 @@ export const GhostiesAnimation: React.FC = () => {
           const enterX = interpolate(sp, [0, 1], [enterFrom, 0]);
 
           const settled = frame > delay + 12;
-          const float = settled && frame < SCATTER_START
+          const float = settled
             ? Math.sin((frame - delay) * 0.12 + (i + 1) * 0.9) * 4.5
             : 0;
 
