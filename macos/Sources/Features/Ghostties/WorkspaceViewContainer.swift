@@ -147,6 +147,12 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         )
     }
 
+    /// Zero out safe area insets so Auto Layout constraints measure from
+    /// the actual window edge, not the titlebar-offset safe area.
+    /// Without this, `topAnchor` is shifted down by ~28pt (titlebar height)
+    /// and our `terminalTopInset` constant has no visible effect.
+    override var safeAreaInsets: NSEdgeInsets { NSEdgeInsetsZero }
+
     override var intrinsicContentSize: NSSize {
         let termSize = terminalContainer.intrinsicContentSize
         guard termSize.width != NSView.noIntrinsicMetric else { return termSize }
@@ -275,7 +281,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         switch newMode {
         case .pinned:
             terminalContainer.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
-            terminalShadowHost.layer?.shadowOpacity = 0.15
+            terminalShadowHost.layer?.shadowOpacity = 0.2
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .closed:
             terminalContainer.layer?.cornerRadius = 0
@@ -402,7 +408,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         sidebarWidthConstraint = sidebarHostingView.widthAnchor.constraint(equalToConstant: initialWidth)
 
         let inset: CGFloat = isPinned ? WorkspaceLayout.terminalInset : 0
-
         // Inset constraints target the shadow host, not the terminal directly.
         shadowHostTopConstraint = terminalShadowHost.topAnchor.constraint(
             equalTo: topAnchor, constant: inset)
@@ -456,13 +461,18 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         // Terminal floating card: all four corners rounded when pinned.
         terminalContainer.wantsLayer = true
         terminalContainer.layer?.cornerRadius = isPinned ? WorkspaceLayout.terminalCornerRadius : 0
+        terminalContainer.layer?.cornerCurve = .continuous
+        terminalContainer.layer?.maskedCorners = [
+            .layerMinXMinYCorner, .layerMaxXMinYCorner,  // top-left, top-right
+            .layerMinXMaxYCorner, .layerMaxXMaxYCorner,  // bottom-left, bottom-right
+        ]
         terminalContainer.layer?.masksToBounds = true
 
         // Configure shadow on the host layer. Must happen after addSubview so the
         // layer exists (wantsLayer in a property closure may not create it in time).
         terminalShadowHost.wantsLayer = true
         terminalShadowHost.layer?.shadowColor = NSColor.black.cgColor
-        terminalShadowHost.layer?.shadowOpacity = isPinned ? 0.15 : 0
+        terminalShadowHost.layer?.shadowOpacity = isPinned ? 0.2 : 0
         terminalShadowHost.layer?.shadowRadius = 8
         terminalShadowHost.layer?.shadowOffset = CGSize(width: 0, height: -2)
 

@@ -23,6 +23,7 @@ enum WorkspaceLayout {
     static let terminalCornerRadius: CGFloat = 12
 
     /// Inset around the terminal panel when sidebar is visible (floating card effect).
+    /// The design uses 8pt on all four sides (top, bottom, left, right).
     static let terminalInset: CGFloat = 8
 
     /// Width of the invisible hover trigger strip at the left edge (closed mode).
