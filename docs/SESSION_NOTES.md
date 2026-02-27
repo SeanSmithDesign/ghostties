@@ -1,5 +1,41 @@
 # Session Notes — Ghostties
 
+## Feb 27, 2026
+
+### Terminal Card Refinement — Safe Area Fix, Shadow Tuning, Corner Rounding
+
+Refined the floating terminal card to match the Paper design (artboard Q3-0). Fixed the card not reaching the top of the window, tuned shadow opacity, and improved corner rounding.
+
+### Root Cause — Top Constraint Not Working
+
+`WorkspaceViewContainer.topAnchor` included ~28pt of safe area inset from the titlebar (even though `titlebarAppearsTransparent = true`). Changing the constraint constant from 8 to 2 had no visible effect because the safe area dominated. Override `safeAreaInsets` to return `NSEdgeInsetsZero` solved the problem — constraints now measure from the actual window edge.
+
+### Changes Made
+
+1. **Safe area override**: Added `override var safeAreaInsets: NSEdgeInsets { NSEdgeInsetsZero }` to `WorkspaceViewContainer`
+2. **Shadow opacity**: Tuned from 0.15 → 0.2 (tested at 0.3, settled on 0.2 per design comparison)
+3. **Continuous corner rounding**: Added `.continuous` cornerCurve + explicit `maskedCorners` for all four corners
+4. **Design-verified padding**: Confirmed via Paper computed styles that design uses 8pt on all four sides (equal inset)
+
+### Files Modified
+- `WorkspaceViewContainer.swift` — safe area override, shadow opacity (0.15→0.2), corner curve/masking
+- `WorkspaceLayout.swift` — clarified comment that design uses 8pt on all four sides
+
+### Commits
+- `a8a4fece7` feat(sidebar): safe area fix, shadow tuning, and continuous corner rounding
+
+### Key Learnings
+- **NSView.topAnchor includes safe area**: With `.fullSizeContentView`, the safe area inset from the titlebar shifts `topAnchor` down. Override `safeAreaInsets` to zero when you need constraints to measure from the actual window edge.
+- **Design comparison workflow**: Used Paper `get_computed_styles` to extract exact measurements from design (padding, shadow, border radius) and matched implementation to those values.
+
+### Notes for Next Session
+- Terminal card now matches Paper design for padding, shadow, and corner rounding
+- Hover/open/close animation still needs refinement (noted but not started)
+- 7 manual testing findings from Feb 20-22 still pending
+- Fullscreen transitions and dark mode still need verification
+
+---
+
 ## Feb 26, 2026 (Late Night — Continued)
 
 ### Titlebar Arc-Style Alignment — Remove Accessory Inflation
