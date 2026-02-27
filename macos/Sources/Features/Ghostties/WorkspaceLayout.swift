@@ -20,6 +20,9 @@ enum WorkspaceLayout {
     /// Height reserved at top for window traffic light controls.
     static let titlebarSpacerHeight: CGFloat = 38
 
+    /// Height of the session-name title bar inside the terminal card.
+    static let terminalTitleBarHeight: CGFloat = 28
+
     /// Corner radius on the floating terminal panel (all four corners).
     static let terminalCornerRadius: CGFloat = 12
 

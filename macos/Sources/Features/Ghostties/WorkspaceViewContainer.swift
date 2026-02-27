@@ -30,6 +30,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     private let sidebarHostingView: NSView
     private let terminalContainer: TerminalViewContainer<ViewModel>
     private let coordinator: SessionCoordinator
+    private let ghostty: Ghostty.App
 
     /// Shadow host wraps the terminal container so the drop shadow renders
     /// outside `masksToBounds` clipping. The shadow host carries the shadow;
@@ -89,8 +90,14 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     /// Tracking area for hover detection. Only one is active at a time.
     private var activeTrackingArea: NSTrackingArea?
 
+    /// Terminal background color from Ghostty config, used for the card title bar.
+    private var terminalBackgroundCGColor: CGColor {
+        NSColor(ghostty.config.backgroundColor).cgColor
+    }
+
 
     init(ghostty: Ghostty.App, viewModel: ViewModel, delegate: (any TerminalViewDelegate)? = nil) {
+        self.ghostty = ghostty
         self.terminalContainer = TerminalViewContainer(
             ghostty: ghostty,
             viewModel: viewModel,
@@ -266,7 +273,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
                 shadowHostLeadingToSidebar.animator().constant = inset
                 shadowHostTrailingConstraint.animator().constant = -inset
                 shadowHostBottomConstraint.animator().constant = -inset
-                terminalTopConstraint.animator().constant = WorkspaceLayout.titlebarSpacerHeight
+                terminalTopConstraint.animator().constant = WorkspaceLayout.terminalTitleBarHeight
                 titleLabel.animator().alphaValue = 1
                 sidebarOverlayBackground.animator().alphaValue = 0
 
@@ -300,7 +307,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             terminalShadowHost.layer?.shadowOpacity = 0.2
             terminalShadowHost.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
-            terminalShadowHost.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+            terminalShadowHost.layer?.backgroundColor = terminalBackgroundCGColor
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .closed:
             terminalContainer.layer?.cornerRadius = 0
@@ -450,7 +457,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         shadowHostLeadingToSuperview.isActive = !isPinned
 
         // Terminal top offset inside the shadow host — reserves title bar space when pinned.
-        let titlebarInset: CGFloat = isPinned ? WorkspaceLayout.titlebarSpacerHeight : 0
+        let titlebarInset: CGFloat = isPinned ? WorkspaceLayout.terminalTitleBarHeight : 0
         terminalTopConstraint = terminalContainer.topAnchor.constraint(
             equalTo: terminalShadowHost.topAnchor, constant: titlebarInset)
 
@@ -509,7 +516,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         // must render outside the layer bounds.
         terminalShadowHost.layer?.cornerRadius = isPinned ? WorkspaceLayout.terminalCornerRadius : 0
         terminalShadowHost.layer?.cornerCurve = .continuous
-        terminalShadowHost.layer?.backgroundColor = isPinned ? NSColor.textBackgroundColor.cgColor : nil
+        terminalShadowHost.layer?.backgroundColor = isPinned ? terminalBackgroundCGColor : nil
 
         // Background material is only visible in overlay (floating hover) mode.
         // In pinned mode the sidebar is transparent; in closed mode it's hidden entirely.
