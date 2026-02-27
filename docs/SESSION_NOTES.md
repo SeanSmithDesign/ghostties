@@ -1,5 +1,34 @@
 # Session Notes — Ghostties
 
+## Feb 26, 2026 (Late Night — Continued)
+
+### Titlebar Arc-Style Alignment — Remove Accessory Inflation
+
+Eliminated the visible titlebar band and aligned traffic lights with sidebar toolbar buttons, matching the Arc/Dia Browser pattern where the titlebar is invisible and content extends flush to the window chrome.
+
+### Root Cause
+
+Two `NSTitlebarAccessoryViewControllers` (resetZoom + update notification) added in `TerminalWindow.awakeFromNib()` inflated the titlebar from ~28pt to ~50-60pt. Additionally, missing `titlebarSeparatorStyle = .none` and missing `.ignoresSafeArea(.container, edges: .top)` on the SwiftUI sidebar.
+
+### Files Modified
+- `TerminalController.swift` — expanded `configureWorkspaceTitlebar()` with accessory removal loop + separator suppression
+- `WorkspaceSidebarView.swift` — added `.ignoresSafeArea(.container, edges: .top)` to root view
+
+### New Files Created
+- `docs/solutions/architecture/titlebar-accessory-inflation-arc-style-fix.md` — full solution documentation
+- `docs/plans/2026-02-26-fix-workspace-titlebar-arc-style-alignment-plan.md` — implementation plan
+
+### Commits
+- `024ae3bc1` fix(titlebar): remove accessory inflation for Arc-style invisible titlebar
+
+### Notes for Next Session
+- Titlebar is now fully invisible — traffic lights and sidebar buttons aligned
+- All 3 sidebar states (pinned/closed/overlay) render correctly
+- Remaining plan items: verify fullscreen transitions, confirm `syncAppearance()` doesn't revert, dark mode testing
+- 7 manual testing findings from Feb 20-22 still pending
+
+---
+
 ## Feb 26, 2026 (Late Night)
 
 ### Titlebar Hiding — Force Base Terminal Nib
