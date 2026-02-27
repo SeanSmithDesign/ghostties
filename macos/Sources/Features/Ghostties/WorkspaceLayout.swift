@@ -1,4 +1,16 @@
 import Foundation
+import SwiftUI
+
+/// Three-state sidebar visibility model.
+///
+/// - `pinned`: Sidebar open, terminal pushed right (floating card).
+/// - `closed`: Sidebar hidden, terminal fills window flush.
+/// - `overlay`: Sidebar floats on top of full-width terminal (hover-to-reveal).
+enum SidebarMode: Int, Codable {
+    case pinned
+    case closed
+    case overlay
+}
 
 /// Shared layout constants for the workspace sidebar.
 enum WorkspaceLayout {
@@ -8,8 +20,30 @@ enum WorkspaceLayout {
     /// Height reserved at top for window traffic light controls.
     static let titlebarSpacerHeight: CGFloat = 38
 
-    /// Corner radius on the terminal's leading edge (top-left, bottom-left).
-    static let terminalCornerRadius: CGFloat = 10
+    /// Height of the session-name title bar inside the terminal card.
+    static let terminalTitleBarHeight: CGFloat = 28
+
+    /// Corner radius on the floating terminal panel (all four corners).
+    static let terminalCornerRadius: CGFloat = 12
+
+    /// Inset around the terminal panel when sidebar is visible (floating card effect).
+    /// The design uses 8pt on all four sides (top, bottom, left, right).
+    static let terminalInset: CGFloat = 8
+
+    /// Width of the invisible hover trigger strip at the left edge (closed mode).
+    static let overlayTriggerWidth: CGFloat = 10
+
+    /// Background for expanded project group container (dark mode).
+    static let expandedContainerDark = Color(white: 0.16)
+
+    /// Background for expanded project group container (light mode).
+    static let expandedContainerLight = Color.white
+
+    /// Background for active session row (dark mode): 6% white.
+    static let activeRowDark = Color.white.opacity(0.06)
+
+    /// Background for active session row (light mode): 4% black.
+    static let activeRowLight = Color.black.opacity(0.04)
 }
 
 // MARK: - Workspace Notifications

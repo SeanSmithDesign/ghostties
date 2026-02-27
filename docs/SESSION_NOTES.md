@@ -1,5 +1,240 @@
 # Session Notes — Ghostties
 
+## Feb 27, 2026 (Session 3)
+
+### Title Styling Fix + Code Review Hardening
+
+Fixed terminal session title styling to match Paper design, then ran full code review and resolved all findings.
+
+### Title Styling (Design Parity)
+
+- Font size: 13pt → 11pt (matches Paper artboard Q3-0)
+- Top offset: `(titlebarSpacerHeight - 16) / 2` → `6pt` (matches 6px paddingBlock from design)
+
+### Code Review Findings Resolved
+
+**P2 — Important:**
+1. **Protect sidebarMode write access** — Made `WorkspaceStore.sidebarMode` `private(set)` with explicit `updateSidebarMode(_:)` method. Enforces unidirectional data flow at compile time.
+2. **Scope backgroundEffectView** — Constrained trailing edge to `sidebarHostingView.trailingAnchor` instead of full window width. Eliminates wasted vibrancy compositing behind the opaque terminal.
+3. **Thread-safe resolvedPaths cache** — Wrapped `SessionCoordinator._resolvedPaths` with `NSLock`. Eliminates undefined behavior from concurrent Dictionary mutation on detached tasks.
+
+**P3 — Nice-to-Have:**
+4. **Overlay transition debounce** — Added 0.25s `CACurrentMediaTime()` guard in `transitionTo()` to prevent rapid closed↔overlay oscillation near the hover boundary.
+5. **Double-layer overlay encode guard** — Added overlay→closed mapping in `State.encode(to:)` so the invariant is enforced at the encoding layer too.
+6. **Overlay persistence round-trip test** — New test verifying `.overlay` encodes as `.closed`.
+
+### Files Modified
+- `WorkspaceViewContainer.swift` — title font 13→11, top offset→6, backgroundEffectView scoped, transition debounce, updateSidebarMode call
+- `WorkspaceStore.swift` — `private(set) sidebarMode`, `updateSidebarMode(_:)` method
+- `WorkspacePersistence.swift` — overlay→closed guard in `encode(to:)`
+- `SessionCoordinator.swift` — NSLock-guarded `_resolvedPaths` cache
+- `WorkspacePersistenceTests.swift` — overlay persistence round-trip test
+
+### Commits
+- TBD (this session)
+
+## Feb 27, 2026 (Session 2)
+
+### Sidebar Visual Polish — Ghost Characters, Pixel Chevrons, Design Parity
+
+Implemented all 5 phases of the sidebar visual polish plan to bring the sidebar to parity with Paper design mockups (artboards `1O-0` dark, `XX-0` light).
+
+### Changes Made
+
+1. **PixelChevronView** (new): Pixel-art chevron matching ghost aesthetic, 7×5 grid via Path, rotation animation gated on reduced motion
+2. **ProjectDisclosureRow**: Replaced SF Symbol chevron with PixelChevronView, added plus icon in header, hover states, expanded container background, Move Up/Down context menu
+3. **SessionRow**: Complete rewrite — ghost character on right side, themed active row background + shadow, hover feedback, 28pt height
+4. **WorkspaceSidebarView**: Toolbar hover states via ToolbarIconButton, empty state with ghost + add button
+5. **WorkspaceLayout**: Extracted shared color constants (expandedContainer, activeRow for dark/light)
+6. **WorkspaceViewContainer**: Reduced title label font size (13→11) and adjusted top constraint
+
+### Design Review Results
+
+- Initial implementation: 82/100
+- After 6 fixes (reduced motion, hit targets, adaptive colors, constants, grid spacing, hover): 88/100
+
+### New Files
+
+- `macos/Sources/Features/Ghostties/PixelChevronView.swift`
+- `docs/solutions/ui-bugs/sidebar-visual-polish-design-parity.md`
+
+### Files Modified
+
+- `ProjectDisclosureRow.swift`, `SessionDetailView.swift`, `WorkspaceSidebarView.swift`, `WorkspaceLayout.swift`, `WorkspaceViewContainer.swift`
+
+### Commits
+
+- `119c635c2` feat(sidebar): visual polish — ghost characters, pixel chevrons, design parity
+
+### Key Learnings
+
+- **Pixel art pattern**: GeometryReader + Path with grid array is reusable for both ghosts and chevrons
+- **Adaptive colors**: `Color(.secondaryLabelColor)` auto-adapts to dark/light; use WorkspaceLayout constants for custom themed values
+- **Hover state pattern**: `@State isHovered` + `.onHover { isHovered = $0 }` — extract to private struct when reused
+
+### Remaining Refinements (P2/P3 from code review)
+
+- Remove `GeometryReader` from `PixelChevronView` (fixed 8×8 size doesn't need it)
+- Use `@Environment(\.accessibilityReduceMotion)` instead of `NSWorkspace` call
+- Extract `SessionStatus.color` extension to deduplicate status color logic
+- Use adaptive `NSColor(name:dynamicProvider:)` to eliminate `colorScheme` ternaries
+- Rename `SessionDetailView.swift` → `SessionRow.swift` to match contents
+
+---
+
+## Feb 27, 2026
+
+### Terminal Card Refinement — Safe Area Fix, Shadow Tuning, Corner Rounding
+
+Refined the floating terminal card to match the Paper design (artboard Q3-0). Fixed the card not reaching the top of the window, tuned shadow opacity, and improved corner rounding.
+
+### Root Cause — Top Constraint Not Working
+
+`WorkspaceViewContainer.topAnchor` included ~28pt of safe area inset from the titlebar (even though `titlebarAppearsTransparent = true`). Changing the constraint constant from 8 to 2 had no visible effect because the safe area dominated. Override `safeAreaInsets` to return `NSEdgeInsetsZero` solved the problem — constraints now measure from the actual window edge.
+
+### Changes Made
+
+1. **Safe area override**: Added `override var safeAreaInsets: NSEdgeInsets { NSEdgeInsetsZero }` to `WorkspaceViewContainer`
+2. **Shadow opacity**: Tuned from 0.15 → 0.2 (tested at 0.3, settled on 0.2 per design comparison)
+3. **Continuous corner rounding**: Added `.continuous` cornerCurve + explicit `maskedCorners` for all four corners
+4. **Design-verified padding**: Confirmed via Paper computed styles that design uses 8pt on all four sides (equal inset)
+
+### Files Modified
+- `WorkspaceViewContainer.swift` — safe area override, shadow opacity (0.15→0.2), corner curve/masking
+- `WorkspaceLayout.swift` — clarified comment that design uses 8pt on all four sides
+
+### Commits
+- `a8a4fece7` feat(sidebar): safe area fix, shadow tuning, and continuous corner rounding
+
+### Key Learnings
+- **NSView.topAnchor includes safe area**: With `.fullSizeContentView`, the safe area inset from the titlebar shifts `topAnchor` down. Override `safeAreaInsets` to zero when you need constraints to measure from the actual window edge.
+- **Design comparison workflow**: Used Paper `get_computed_styles` to extract exact measurements from design (padding, shadow, border radius) and matched implementation to those values.
+
+### Notes for Next Session
+- Terminal card now matches Paper design for padding, shadow, and corner rounding
+- Hover/open/close animation still needs refinement (noted but not started)
+- 7 manual testing findings from Feb 20-22 still pending
+- Fullscreen transitions and dark mode still need verification
+
+---
+
+## Feb 26, 2026 (Late Night — Continued)
+
+### Titlebar Arc-Style Alignment — Remove Accessory Inflation
+
+Eliminated the visible titlebar band and aligned traffic lights with sidebar toolbar buttons, matching the Arc/Dia Browser pattern where the titlebar is invisible and content extends flush to the window chrome.
+
+### Root Cause
+
+Two `NSTitlebarAccessoryViewControllers` (resetZoom + update notification) added in `TerminalWindow.awakeFromNib()` inflated the titlebar from ~28pt to ~50-60pt. Additionally, missing `titlebarSeparatorStyle = .none` and missing `.ignoresSafeArea(.container, edges: .top)` on the SwiftUI sidebar.
+
+### Files Modified
+- `TerminalController.swift` — expanded `configureWorkspaceTitlebar()` with accessory removal loop + separator suppression
+- `WorkspaceSidebarView.swift` — added `.ignoresSafeArea(.container, edges: .top)` to root view
+
+### New Files Created
+- `docs/solutions/architecture/titlebar-accessory-inflation-arc-style-fix.md` — full solution documentation
+- `docs/plans/2026-02-26-fix-workspace-titlebar-arc-style-alignment-plan.md` — implementation plan
+
+### Commits
+- `024ae3bc1` fix(titlebar): remove accessory inflation for Arc-style invisible titlebar
+
+### Notes for Next Session
+- Titlebar is now fully invisible — traffic lights and sidebar buttons aligned
+- All 3 sidebar states (pinned/closed/overlay) render correctly
+- Remaining plan items: verify fullscreen transitions, confirm `syncAppearance()` doesn't revert, dark mode testing
+- 7 manual testing findings from Feb 20-22 still pending
+
+---
+
+## Feb 26, 2026 (Late Night)
+
+### Titlebar Hiding — Force Base Terminal Nib
+
+Fixed the native macOS window titlebar that persisted in workspace mode despite multiple hiding attempts. The root cause was `macos-titlebar-style = tabs` in user config, which loaded `TitlebarTabsVenturaTerminalWindow` — a complex subclass with its own toolbar title rendering and titlebar background painting that overrode all standard NSWindow hiding APIs.
+
+### Investigation Trail (4 failed approaches → 1 solution)
+
+1. **KVO + isHidden on NSTextField** — macOS resets `isHidden` internally
+2. **alphaValue + async dispatch** — targeted wrong element (native NSTextField vs custom TerminalToolbar)
+3. **toolbar = nil** — removed "~" text but titlebar band remained (subclass paints `titlebarContainer.layer?.backgroundColor`)
+4. **Clear titlebar background** — `syncAppearance()` immediately repainted it
+5. **Force base "Terminal" nib** — bypasses the complex subclass entirely; `titleVisibility = .hidden` + `titlebarAppearsTransparent = true` work correctly on the base `TerminalWindow`
+
+### Files Modified
+- `TerminalController.swift` — `windowNibName` forced to "Terminal", added `configureWorkspaceTitlebar()`
+- `WorkspaceViewContainer.swift` — removed KVO title observer, cached text field, and title-hiding workarounds (-42 lines)
+
+### New Files Created
+- `docs/solutions/architecture/nib-window-subclass-titlebar-hiding.md` — full solution documentation
+
+### Commits
+- `509fc927f` fix(titlebar): force base Terminal nib to hide workspace titlebar
+
+### Notes for Next Session
+- Titlebar is now transparent with no visible title text
+- Sidebar state machine (pinned/closed/overlay) still working correctly
+- 7 manual testing findings from Feb 20-22 still pending
+- More workspace sidebar work remains
+
+---
+
+## Feb 26, 2026 (Evening)
+
+### 3-State Sidebar State Machine + Code Review + Design Review
+
+Implemented the full sidebar state machine (pinned/closed/overlay), ran a 6-agent code review, fixed all findings, and ran a design quality review with fixes.
+
+### Features Implemented
+
+1. **3-state sidebar state machine**: Replaced boolean `isSidebarVisible` with `SidebarMode` enum (`.pinned`, `.closed`, `.overlay`) across 4 files
+   - Traffic lights hidden when sidebar closed
+   - Hover-to-reveal overlay via NSTrackingArea (10pt left edge trigger)
+   - Centralized `transitionTo()` method with 8-step state transition
+   - Dual mutually-exclusive leading constraints for pinned vs overlay/closed
+   - Overlay z-ordering via `layer.zPosition`
+   - Window resign auto-dismisses overlay
+   - Backward-compatible persistence (old `sidebarVisible: Bool` → new `sidebarMode: SidebarMode`)
+
+2. **Code review remediation (6 findings)**: Fixed all P1/P2/P3 from 6-agent review
+   - P1-007: Added explicit `shadowPath` in `layout()` for GPU performance
+   - P1-008: Added `deinit` + `viewDidMoveToWindow` observer cleanup
+   - P1-009: Updated persistence tests for new `sidebarMode` API + 3 new tests (legacy migration, invalid raw value)
+   - P2-010: Toggle `isHidden` on NSVisualEffectViews when inactive (compositing fix)
+   - P2-011: Decode `SidebarMode` as raw `Int` then safe-construct (prevents data wipe on invalid value)
+   - P3-012: Simplified mouse handlers, cached titlebar text field, `.removeDuplicates()`, removed zone userInfo
+
+3. **Design quality review (score 79→85/100)**: Fixed 3 a11y warnings
+   - Added `.accessibilityLabel("Projects")` to sidebar ScrollView
+   - Added `.focusable()` to toolbar buttons
+   - Added reduced motion check (`accessibilityDisplayShouldReduceMotion`)
+
+4. **Solution docs**: Documented 3-state sidebar pattern and Codable enum hardening
+
+### Files Modified
+- `WorkspaceLayout.swift` — `SidebarMode` enum, `overlayTriggerWidth` constant
+- `WorkspacePersistence.swift` — `sidebarMode` replaces `sidebarVisible`, backward-compat decoding, raw Int hardening
+- `WorkspaceStore.swift` — `sidebarMode` property, overlay→closed on persist
+- `WorkspaceViewContainer.swift` — Full state machine rewrite with all review fixes
+- `WorkspacePersistenceTests.swift` — Updated API + 3 new tests
+- `WorkspaceSidebarView.swift` — a11y fixes (ScrollView label, focusable buttons)
+
+### New Files Created
+- `docs/solutions/architecture/sidebar-3-state-machine-overlay-pattern.md`
+- `docs/solutions/logic-errors/codable-enum-raw-value-wipes-state.md`
+- `todos/007-012` — 6 review finding files (all marked complete)
+
+### Commits
+- `ecb7f04` feat(sidebar): 3-state machine (pinned/closed/overlay) with review fixes
+- `25b5511` docs: add solution docs and mark review todos complete
+
+### Notes for Next Session
+- Design quality score: 85/100 (4 suggestions remain — all judgment calls)
+- App built and launches successfully
+- Manual testing checklist: pinned↔closed toggle, hover overlay trigger/dismiss, overlay→pinned promotion, window resign dismiss, dark mode, persistence round-trip
+
+---
+
 ## Feb 26, 2026
 
 ### Design Work — Paper

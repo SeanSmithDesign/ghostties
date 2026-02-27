@@ -20,24 +20,30 @@ struct WorkspaceSidebarView: View {
             // Titlebar toolbar: action buttons right of traffic lights
             titlebarToolbar
 
-            // Scrollable disclosure list
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(store.sortedProjects) { project in
-                        ProjectDisclosureRow(
-                            project: project,
-                            isExpanded: expandedBinding(for: project.id),
-                            selectedProjectId: $selectedProjectId
-                        )
+            // Scrollable disclosure list or empty state
+            if store.sortedProjects.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(store.sortedProjects) { project in
+                            ProjectDisclosureRow(
+                                project: project,
+                                isExpanded: expandedBinding(for: project.id),
+                                selectedProjectId: $selectedProjectId
+                            )
+                        }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .accessibilityLabel("Projects")
             }
 
             Spacer(minLength: 0)
         }
-        .background(.regularMaterial)
+        .background(.clear)
+        .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             // Restore persisted project selection, or default to the first project.
             if selectedProjectId == nil {
@@ -77,24 +83,29 @@ struct WorkspaceSidebarView: View {
     private var titlebarToolbar: some View {
         HStack {
             Spacer()
-            Button(action: presentFolderPicker) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Add project")
-
-            Button(action: toggleSidebar) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Toggle sidebar")
+            ToolbarIconButton(systemName: "plus", label: "Add project", action: presentFolderPicker)
+            ToolbarIconButton(systemName: "sidebar.left", label: "Toggle sidebar", action: toggleSidebar)
         }
         .padding(.horizontal, 12)
         .frame(height: WorkspaceLayout.titlebarSpacerHeight)
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            GhostCharacterView(character: .blinky, color: Color(.tertiaryLabelColor))
+                .frame(width: 48, height: 48)
+
+            Text("Add a project to get started")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            EmptyStateAddButton(action: presentFolderPicker)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No projects. Add a project to get started.")
     }
 
     // MARK: - Helpers
@@ -168,5 +179,56 @@ struct WorkspaceSidebarView: View {
         let targetId = sorted[newIndex].id
         selectedProjectId = targetId
         expandedProjectIds.insert(targetId)
+    }
+}
+
+// MARK: - Empty State Add Button
+
+/// "Add Project" button with hover feedback for the sidebar empty state.
+private struct EmptyStateAddButton: View {
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .medium))
+                Text("Add Project")
+                    .font(.system(size: 12, weight: .medium))
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isHovered ? .primary : .secondary)
+        .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Toolbar Icon Button
+
+/// A small icon button with hover highlight for the sidebar toolbar.
+private struct ToolbarIconButton: View {
+    let systemName: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(isHovered ? Color.primary.opacity(0.08) : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .focusable()
+        .onHover { isHovered = $0 }
+        .accessibilityLabel(label)
     }
 }
