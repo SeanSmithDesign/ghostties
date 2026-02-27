@@ -29,11 +29,23 @@ Implemented all 5 phases of the sidebar visual polish plan to bring the sidebar 
 
 - `ProjectDisclosureRow.swift`, `SessionDetailView.swift`, `WorkspaceSidebarView.swift`, `WorkspaceLayout.swift`, `WorkspaceViewContainer.swift`
 
+### Commits
+
+- `119c635c2` feat(sidebar): visual polish — ghost characters, pixel chevrons, design parity
+
 ### Key Learnings
 
 - **Pixel art pattern**: GeometryReader + Path with grid array is reusable for both ghosts and chevrons
 - **Adaptive colors**: `Color(.secondaryLabelColor)` auto-adapts to dark/light; use WorkspaceLayout constants for custom themed values
 - **Hover state pattern**: `@State isHovered` + `.onHover { isHovered = $0 }` — extract to private struct when reused
+
+### Remaining Refinements (P2/P3 from code review)
+
+- Remove `GeometryReader` from `PixelChevronView` (fixed 8×8 size doesn't need it)
+- Use `@Environment(\.accessibilityReduceMotion)` instead of `NSWorkspace` call
+- Extract `SessionStatus.color` extension to deduplicate status color logic
+- Use adaptive `NSColor(name:dynamicProvider:)` to eliminate `colorScheme` ternaries
+- Rename `SessionDetailView.swift` → `SessionRow.swift` to match contents
 
 ---
 
