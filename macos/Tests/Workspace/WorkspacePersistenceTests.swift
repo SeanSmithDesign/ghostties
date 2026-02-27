@@ -137,6 +137,13 @@ struct WorkspacePersistenceTests {
         #expect(decoded.projects.isEmpty)
     }
 
+    @Test func encodingOverlayModePersistsAsClosed() throws {
+        let state = WorkspacePersistence.State(sidebarMode: .overlay)
+        let data = try JSONEncoder().encode(state)
+        let decoded = try JSONDecoder().decode(WorkspacePersistence.State.self, from: data)
+        #expect(decoded.sidebarMode == .closed)
+    }
+
     // MARK: - Validation
 
     @Test func validateClearsStaleLastSelectedProjectId() {

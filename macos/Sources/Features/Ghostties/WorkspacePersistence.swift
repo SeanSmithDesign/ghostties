@@ -84,7 +84,9 @@ struct WorkspacePersistence {
             try container.encode(projects, forKey: .projects)
             try container.encode(sessions, forKey: .sessions)
             try container.encode(templates, forKey: .templates)
-            try container.encode(sidebarMode, forKey: .sidebarMode)
+            // Overlay is transient — always persist as closed.
+            let persistedMode = sidebarMode == .overlay ? SidebarMode.closed : sidebarMode
+            try container.encode(persistedMode, forKey: .sidebarMode)
             try container.encodeIfPresent(lastSelectedProjectId, forKey: .lastSelectedProjectId)
             // Omit the legacy sidebarVisible key on new writes.
         }

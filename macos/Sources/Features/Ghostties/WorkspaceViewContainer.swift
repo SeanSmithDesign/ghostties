@@ -205,9 +205,16 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         }
     }
 
+    /// Minimum interval between transitions to prevent rapid oscillation
+    /// (e.g. mouse hovering at the overlay/closed boundary).
+    private var lastTransitionTime: CFTimeInterval = 0
+
     /// Centralized state transition. All sidebar mode changes go through here.
     private func transitionTo(_ newMode: SidebarMode) {
         guard newMode != sidebarMode else { return }
+        let now = CACurrentMediaTime()
+        guard now - lastTransitionTime > 0.25 else { return }
+        lastTransitionTime = now
         sidebarMode = newMode
 
         let inset = WorkspaceLayout.terminalInset
@@ -300,7 +307,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         updateTrackingAreas()
 
         // 8. Persist (overlay is transient — store persists it as .closed).
-        WorkspaceStore.shared.sidebarMode = newMode
+        WorkspaceStore.shared.updateSidebarMode(newMode)
 
         invalidateIntrinsicContentSize()
     }
@@ -427,7 +434,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         NSLayoutConstraint.activate([
             backgroundEffectView.topAnchor.constraint(equalTo: topAnchor),
             backgroundEffectView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            backgroundEffectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            backgroundEffectView.trailingAnchor.constraint(equalTo: sidebarHostingView.trailingAnchor),
             backgroundEffectView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             // Overlay background tracks sidebar width via trailing edge.

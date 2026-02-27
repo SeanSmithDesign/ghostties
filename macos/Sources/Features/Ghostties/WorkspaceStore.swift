@@ -23,8 +23,15 @@ final class WorkspaceStore: ObservableObject {
 
     /// Current sidebar mode. Persisted across launches.
     /// `.overlay` is transient — always saved as `.closed`.
-    var sidebarMode: SidebarMode = .pinned {
+    /// Only `WorkspaceViewContainer.transitionTo(_:)` should mutate this
+    /// (via `updateSidebarMode`) to keep the UI and store in sync.
+    private(set) var sidebarMode: SidebarMode = .pinned {
         didSet { if oldValue != sidebarMode { persist() } }
+    }
+
+    /// Called by `WorkspaceViewContainer` after state transitions.
+    func updateSidebarMode(_ mode: SidebarMode) {
+        sidebarMode = mode
     }
 
     /// The last selected project ID, used to restore selection on launch.

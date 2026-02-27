@@ -1,5 +1,38 @@
 # Session Notes — Ghostties
 
+## Feb 27, 2026 (Session 3)
+
+### Title Styling Fix + Code Review Hardening
+
+Fixed terminal session title styling to match Paper design, then ran full code review and resolved all findings.
+
+### Title Styling (Design Parity)
+
+- Font size: 13pt → 11pt (matches Paper artboard Q3-0)
+- Top offset: `(titlebarSpacerHeight - 16) / 2` → `6pt` (matches 6px paddingBlock from design)
+
+### Code Review Findings Resolved
+
+**P2 — Important:**
+1. **Protect sidebarMode write access** — Made `WorkspaceStore.sidebarMode` `private(set)` with explicit `updateSidebarMode(_:)` method. Enforces unidirectional data flow at compile time.
+2. **Scope backgroundEffectView** — Constrained trailing edge to `sidebarHostingView.trailingAnchor` instead of full window width. Eliminates wasted vibrancy compositing behind the opaque terminal.
+3. **Thread-safe resolvedPaths cache** — Wrapped `SessionCoordinator._resolvedPaths` with `NSLock`. Eliminates undefined behavior from concurrent Dictionary mutation on detached tasks.
+
+**P3 — Nice-to-Have:**
+4. **Overlay transition debounce** — Added 0.25s `CACurrentMediaTime()` guard in `transitionTo()` to prevent rapid closed↔overlay oscillation near the hover boundary.
+5. **Double-layer overlay encode guard** — Added overlay→closed mapping in `State.encode(to:)` so the invariant is enforced at the encoding layer too.
+6. **Overlay persistence round-trip test** — New test verifying `.overlay` encodes as `.closed`.
+
+### Files Modified
+- `WorkspaceViewContainer.swift` — title font 13→11, top offset→6, backgroundEffectView scoped, transition debounce, updateSidebarMode call
+- `WorkspaceStore.swift` — `private(set) sidebarMode`, `updateSidebarMode(_:)` method
+- `WorkspacePersistence.swift` — overlay→closed guard in `encode(to:)`
+- `SessionCoordinator.swift` — NSLock-guarded `_resolvedPaths` cache
+- `WorkspacePersistenceTests.swift` — overlay persistence round-trip test
+
+### Commits
+- TBD (this session)
+
 ## Feb 27, 2026 (Session 2)
 
 ### Sidebar Visual Polish — Ghost Characters, Pixel Chevrons, Design Parity

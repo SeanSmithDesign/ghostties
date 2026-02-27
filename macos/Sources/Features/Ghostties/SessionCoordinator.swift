@@ -36,7 +36,11 @@ final class SessionCoordinator: ObservableObject {
     @Published private(set) var statuses: [UUID: SessionStatus] = [:]
 
     /// Cache resolved command paths to avoid repeated shell spawns.
-    nonisolated(unsafe) private static var resolvedPaths: [String: String] = [:]
+    /// Guarded by `resolvedPathsLock` since `resolveCommand` runs on detached tasks.
+    /// `nonisolated(unsafe)` opts out of @MainActor isolation so the nonisolated
+    /// `resolveCommand` method can access these; the lock provides actual safety.
+    nonisolated(unsafe) private static let resolvedPathsLock = NSLock()
+    nonisolated(unsafe) private static var _resolvedPaths: [String: String] = [:]
 
     /// Tracks the last focused session per project per window, so clicking a
     /// project in the icon rail can restore the correct terminal session.
@@ -327,7 +331,10 @@ final class SessionCoordinator: ObservableObject {
         guard !command.hasPrefix("/") else { return command }
 
         // Check cache first.
-        if let cached = resolvedPaths[command] { return cached }
+        resolvedPathsLock.lock()
+        let cached = _resolvedPaths[command]
+        resolvedPathsLock.unlock()
+        if let cached { return cached }
 
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
@@ -345,7 +352,9 @@ final class SessionCoordinator: ObservableObject {
         for dir in commonPaths {
             let candidate = (dir as NSString).appendingPathComponent(command)
             if fm.isExecutableFile(atPath: candidate) {
-                resolvedPaths[command] = candidate
+                resolvedPathsLock.lock()
+                _resolvedPaths[command] = candidate
+                resolvedPathsLock.unlock()
                 return candidate
             }
         }
@@ -377,7 +386,9 @@ final class SessionCoordinator: ObservableObject {
         for dir in pathString.split(separator: ":").map(String.init) {
             let candidate = (dir as NSString).appendingPathComponent(command)
             if fm.isExecutableFile(atPath: candidate) {
-                resolvedPaths[command] = candidate
+                resolvedPathsLock.lock()
+                _resolvedPaths[command] = candidate
+                resolvedPathsLock.unlock()
                 return candidate
             }
         }
