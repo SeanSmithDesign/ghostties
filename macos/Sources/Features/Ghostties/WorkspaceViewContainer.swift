@@ -76,6 +76,10 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     private var shadowHostTrailingConstraint: NSLayoutConstraint!
     private var shadowHostBottomConstraint: NSLayoutConstraint!
 
+    /// Top offset of the terminal inside the shadow host, reserving space
+    /// for the title bar in pinned mode.
+    private var terminalTopConstraint: NSLayoutConstraint!
+
     /// Dual leading constraints — mutually exclusive.
     /// `.pinned`: terminal leading follows sidebar trailing (pushed right).
     /// `.closed`/`.overlay`: terminal leading follows superview leading (full-width).
@@ -98,7 +102,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         let sidebarView = WorkspaceSidebarView()
             .environmentObject(WorkspaceStore.shared)
             .environmentObject(coordinator)
-        let hostingView = NSHostingView(rootView: sidebarView)
+        let hostingView = TransparentHostingView(rootView: sidebarView)
         // Auto Layout controls the sidebar width; disable intrinsic size reporting
         // to avoid unnecessary layout computation from the hosting view.
         hostingView.sizingOptions = []
@@ -235,9 +239,11 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         sidebarOverlayBackground.layer?.zPosition = newMode == .overlay ? 99 : 0
 
         // 3. Toggle isHidden so inactive NSVisualEffectViews leave the compositing tree.
+        //    The background material is only visible in overlay mode (floating hover state).
+        //    In pinned mode the sidebar is transparent — the window background shows through.
         switch newMode {
         case .pinned:
-            backgroundEffectView.isHidden = false
+            backgroundEffectView.isHidden = true
             sidebarOverlayBackground.isHidden = true
         case .closed:
             backgroundEffectView.isHidden = true
@@ -260,6 +266,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
                 shadowHostLeadingToSidebar.animator().constant = inset
                 shadowHostTrailingConstraint.animator().constant = -inset
                 shadowHostBottomConstraint.animator().constant = -inset
+                terminalTopConstraint.animator().constant = WorkspaceLayout.titlebarSpacerHeight
                 titleLabel.animator().alphaValue = 1
                 sidebarOverlayBackground.animator().alphaValue = 0
 
@@ -269,6 +276,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
                 shadowHostLeadingToSuperview.animator().constant = 0
                 shadowHostTrailingConstraint.animator().constant = 0
                 shadowHostBottomConstraint.animator().constant = 0
+                terminalTopConstraint.animator().constant = 0
                 titleLabel.animator().alphaValue = 0
                 sidebarOverlayBackground.animator().alphaValue = 0
 
@@ -279,6 +287,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
                 shadowHostLeadingToSuperview.animator().constant = 0
                 shadowHostTrailingConstraint.animator().constant = 0
                 shadowHostBottomConstraint.animator().constant = 0
+                terminalTopConstraint.animator().constant = 0
                 titleLabel.animator().alphaValue = 0
                 sidebarOverlayBackground.animator().alphaValue = 1
             }
@@ -288,15 +297,24 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         switch newMode {
         case .pinned:
             terminalContainer.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
+            terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             terminalShadowHost.layer?.shadowOpacity = 0.2
+            terminalShadowHost.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
+            terminalShadowHost.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .closed:
             terminalContainer.layer?.cornerRadius = 0
+            terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
             terminalShadowHost.layer?.shadowOpacity = 0
+            terminalShadowHost.layer?.cornerRadius = 0
+            terminalShadowHost.layer?.backgroundColor = nil
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .overlay:
             terminalContainer.layer?.cornerRadius = 0
+            terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
             terminalShadowHost.layer?.shadowOpacity = 0
+            terminalShadowHost.layer?.cornerRadius = 0
+            terminalShadowHost.layer?.backgroundColor = nil
             sidebarOverlayBackground.layer?.shadowOpacity = 0.2
         }
 
@@ -431,6 +449,11 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         shadowHostLeadingToSidebar.isActive = isPinned
         shadowHostLeadingToSuperview.isActive = !isPinned
 
+        // Terminal top offset inside the shadow host — reserves title bar space when pinned.
+        let titlebarInset: CGFloat = isPinned ? WorkspaceLayout.titlebarSpacerHeight : 0
+        terminalTopConstraint = terminalContainer.topAnchor.constraint(
+            equalTo: terminalShadowHost.topAnchor, constant: titlebarInset)
+
         NSLayoutConstraint.activate([
             backgroundEffectView.topAnchor.constraint(equalTo: topAnchor),
             backgroundEffectView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -452,8 +475,8 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             shadowHostBottomConstraint,
             shadowHostTrailingConstraint,
 
-            // Terminal fills the shadow host.
-            terminalContainer.topAnchor.constraint(equalTo: terminalShadowHost.topAnchor),
+            // Terminal fills the shadow host (top offset reserves title bar space).
+            terminalTopConstraint,
             terminalContainer.leadingAnchor.constraint(equalTo: terminalShadowHost.leadingAnchor),
             terminalContainer.trailingAnchor.constraint(equalTo: terminalShadowHost.trailingAnchor),
             terminalContainer.bottomAnchor.constraint(equalTo: terminalShadowHost.bottomAnchor),
@@ -469,10 +492,9 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         terminalContainer.wantsLayer = true
         terminalContainer.layer?.cornerRadius = isPinned ? WorkspaceLayout.terminalCornerRadius : 0
         terminalContainer.layer?.cornerCurve = .continuous
-        terminalContainer.layer?.maskedCorners = [
-            .layerMinXMinYCorner, .layerMaxXMinYCorner,  // top-left, top-right
-            .layerMinXMaxYCorner, .layerMaxXMaxYCorner,  // bottom-left, bottom-right
-        ]
+        terminalContainer.layer?.maskedCorners = isPinned
+            ? [.layerMinXMinYCorner, .layerMaxXMinYCorner]  // bottom only (MinY = bottom in CA coords)
+            : [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         terminalContainer.layer?.masksToBounds = true
 
         // Configure shadow on the host layer. Must happen after addSubview so the
@@ -483,9 +505,16 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         terminalShadowHost.layer?.shadowRadius = 8
         terminalShadowHost.layer?.shadowOffset = CGSize(width: 0, height: -2)
 
-        // Hide background material and title when sidebar starts collapsed.
+        // Card background behind the title bar region. No masksToBounds — shadow
+        // must render outside the layer bounds.
+        terminalShadowHost.layer?.cornerRadius = isPinned ? WorkspaceLayout.terminalCornerRadius : 0
+        terminalShadowHost.layer?.cornerCurve = .continuous
+        terminalShadowHost.layer?.backgroundColor = isPinned ? NSColor.textBackgroundColor.cgColor : nil
+
+        // Background material is only visible in overlay (floating hover) mode.
+        // In pinned mode the sidebar is transparent; in closed mode it's hidden entirely.
+        backgroundEffectView.isHidden = true
         if !isPinned {
-            backgroundEffectView.isHidden = true
             titleLabel.alphaValue = 0
         }
 
@@ -505,4 +534,14 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             }
             .store(in: &cancellables)
     }
+}
+
+// MARK: - Transparent Hosting View
+
+/// NSHostingView subclass that doesn't draw the default window background.
+/// Used for the sidebar so it's transparent in pinned mode — the window
+/// background shows through. The overlay NSVisualEffectView provides
+/// material only in hover mode.
+private class TransparentHostingView<Content: View>: NSHostingView<Content> {
+    override var isOpaque: Bool { false }
 }
