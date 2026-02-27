@@ -58,7 +58,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     /// Session name centered at the top of the terminal card (titlebar region).
     private let titleLabel: NSTextField = {
         let label = NSTextField(labelWithString: "")
-        label.font = .systemFont(ofSize: 13, weight: .regular)
+        label.font = .systemFont(ofSize: 11, weight: .regular)
         label.textColor = .secondaryLabelColor
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -455,7 +455,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             titleLabel.centerXAnchor.constraint(equalTo: terminalShadowHost.centerXAnchor),
             titleLabel.topAnchor.constraint(
                 equalTo: terminalShadowHost.topAnchor,
-                constant: (WorkspaceLayout.titlebarSpacerHeight - 16) / 2),
+                constant: 6),
         ])
 
         // Terminal floating card: all four corners rounded when pinned.

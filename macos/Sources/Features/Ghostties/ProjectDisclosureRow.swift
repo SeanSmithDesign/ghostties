@@ -11,11 +11,14 @@ struct ProjectDisclosureRow: View {
 
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var coordinator: SessionCoordinator
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var settingsProject: Project?
     @State private var showingTemplatePicker = false
     @State private var editingSessionId: UUID?
     @State private var editingName: String = ""
+    @State private var isHeaderHovered = false
+    @State private var isNewSessionHovered = false
     @FocusState private var renameFieldFocused: Bool
 
     var body: some View {
@@ -25,10 +28,11 @@ struct ProjectDisclosureRow: View {
 
             // Expanded children: sessions + "New Session" button
             if isExpanded {
-                ForEach(sessions) { session in
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     SessionRow(
                         session: session,
                         status: store.globalStatuses[session.id] ?? coordinator.statuses[session.id] ?? .exited,
+                        ghostCharacter: project.ghostCharacter,
                         isActive: coordinator.activeSessionId == session.id,
                         isEditing: editingSessionId == session.id,
                         editingName: editingSessionId == session.id ? $editingName : .constant(""),
@@ -49,6 +53,19 @@ struct ProjectDisclosureRow: View {
                             beginRename(session: session)
                         }
                         Divider()
+                        if index > 0 {
+                            Button("Move Up") {
+                                store.moveSession(id: session.id, toIndex: index - 1, inProject: project.id)
+                            }
+                        }
+                        if index < sessions.count - 1 {
+                            Button("Move Down") {
+                                store.moveSession(id: session.id, toIndex: index + 1, inProject: project.id)
+                            }
+                        }
+                        if index > 0 || index < sessions.count - 1 {
+                            Divider()
+                        }
                         if coordinator.isRunning(id: session.id) {
                             Button("Stop") {
                                 coordinator.closeSession(id: session.id)
@@ -84,42 +101,57 @@ struct ProjectDisclosureRow: View {
                     .padding(.leading, 20)
             }
         }
+        .background(expandedContainerBackground)
     }
 
     // MARK: - Project Header
 
     private var projectHeader: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            let animation: Animation? = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                ? nil
+                : .easeInOut(duration: 0.2)
+            withAnimation(animation) {
                 isExpanded.toggle()
             }
             selectedProjectId = project.id
         } label: {
-            HStack(spacing: 8) {
-                // Chevron (rotates on expand)
-                Image(systemName: "chevron.right")
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
-
-                // Aggregate status dot
-                projectIcon
+            HStack(spacing: 4) {
+                PixelChevronView(
+                    color: projectHasRunning ? Color(nsColor: .systemGreen) : Color(.tertiaryLabelColor),
+                    isExpanded: isExpanded
+                )
 
                 Text(project.name)
                     .font(.system(size: 13, weight: .medium))
+                    .tracking(-0.13)
                     .lineLimit(1)
 
                 Spacer()
+
+                if isExpanded {
+                    Button(action: handleNewSession) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .medium))
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("New session")
+                }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(minHeight: 32)
-            .background(selectedProjectId == project.id ? Color.accentColor.opacity(0.1) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .padding(.leading, 8)
+            .padding(.trailing, 12)
+            .frame(height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHeaderHovered ? Color.primary.opacity(0.06) : Color.clear)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHeaderHovered = $0 }
         .contextMenu {
             Button("Settings\u{2026}") {
                 settingsProject = project
@@ -150,24 +182,25 @@ struct ProjectDisclosureRow: View {
         .accessibilityHint("Double-tap to \(isExpanded ? "collapse" : "expand")")
     }
 
-    // MARK: - Icon
+    // MARK: - Container Background
 
     @ViewBuilder
-    private var projectIcon: some View {
-        Circle()
-            .fill(projectStatusColor)
-            .frame(width: 8, height: 8)
+    private var expandedContainerBackground: some View {
+        if isExpanded {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(colorScheme == .dark ? WorkspaceLayout.expandedContainerDark : WorkspaceLayout.expandedContainerLight)
+        }
     }
 
-    private var projectStatusColor: Color {
-        let projectSessions = store.sessions(for: project.id)
-        let hasRunning = projectSessions.contains { session in
+    // MARK: - Status
+
+    private var projectHasRunning: Bool {
+        store.sessions(for: project.id).contains { session in
             let status = store.globalStatuses[session.id]
                 ?? coordinator.statuses[session.id]
                 ?? .exited
             return status == .running
         }
-        return hasRunning ? .green : Color(.tertiaryLabelColor)
     }
 
     // MARK: - Sessions
@@ -190,9 +223,10 @@ struct ProjectDisclosureRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(isNewSessionHovered ? .secondary : .tertiary)
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
+        .onHover { isNewSessionHovered = $0 }
         .popover(isPresented: $showingTemplatePicker) {
             TemplatePickerView(project: project)
         }

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Three-state sidebar visibility model.
 ///
@@ -28,6 +29,18 @@ enum WorkspaceLayout {
 
     /// Width of the invisible hover trigger strip at the left edge (closed mode).
     static let overlayTriggerWidth: CGFloat = 10
+
+    /// Background for expanded project group container (dark mode).
+    static let expandedContainerDark = Color(white: 0.16)
+
+    /// Background for expanded project group container (light mode).
+    static let expandedContainerLight = Color.white
+
+    /// Background for active session row (dark mode): 6% white.
+    static let activeRowDark = Color.white.opacity(0.06)
+
+    /// Background for active session row (light mode): 4% black.
+    static let activeRowLight = Color.black.opacity(0.04)
 }
 
 // MARK: - Workspace Notifications

@@ -1,5 +1,42 @@
 # Session Notes — Ghostties
 
+## Feb 27, 2026 (Session 2)
+
+### Sidebar Visual Polish — Ghost Characters, Pixel Chevrons, Design Parity
+
+Implemented all 5 phases of the sidebar visual polish plan to bring the sidebar to parity with Paper design mockups (artboards `1O-0` dark, `XX-0` light).
+
+### Changes Made
+
+1. **PixelChevronView** (new): Pixel-art chevron matching ghost aesthetic, 7×5 grid via Path, rotation animation gated on reduced motion
+2. **ProjectDisclosureRow**: Replaced SF Symbol chevron with PixelChevronView, added plus icon in header, hover states, expanded container background, Move Up/Down context menu
+3. **SessionRow**: Complete rewrite — ghost character on right side, themed active row background + shadow, hover feedback, 28pt height
+4. **WorkspaceSidebarView**: Toolbar hover states via ToolbarIconButton, empty state with ghost + add button
+5. **WorkspaceLayout**: Extracted shared color constants (expandedContainer, activeRow for dark/light)
+6. **WorkspaceViewContainer**: Reduced title label font size (13→11) and adjusted top constraint
+
+### Design Review Results
+
+- Initial implementation: 82/100
+- After 6 fixes (reduced motion, hit targets, adaptive colors, constants, grid spacing, hover): 88/100
+
+### New Files
+
+- `macos/Sources/Features/Ghostties/PixelChevronView.swift`
+- `docs/solutions/ui-bugs/sidebar-visual-polish-design-parity.md`
+
+### Files Modified
+
+- `ProjectDisclosureRow.swift`, `SessionDetailView.swift`, `WorkspaceSidebarView.swift`, `WorkspaceLayout.swift`, `WorkspaceViewContainer.swift`
+
+### Key Learnings
+
+- **Pixel art pattern**: GeometryReader + Path with grid array is reusable for both ghosts and chevrons
+- **Adaptive colors**: `Color(.secondaryLabelColor)` auto-adapts to dark/light; use WorkspaceLayout constants for custom themed values
+- **Hover state pattern**: `@State isHovered` + `.onHover { isHovered = $0 }` — extract to private struct when reused
+
+---
+
 ## Feb 27, 2026
 
 ### Terminal Card Refinement — Safe Area Fix, Shadow Tuning, Corner Rounding
