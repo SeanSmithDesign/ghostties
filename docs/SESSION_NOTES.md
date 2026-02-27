@@ -1,5 +1,39 @@
 # Session Notes — Ghostties
 
+## Feb 27, 2026 (Session 4)
+
+### Branch Merge + Light Mode Background Colors
+
+Merged `feat/floating-card-shadow-title` into `main` via PR #1, then adjusted light mode workspace colors and shadow.
+
+### PR Merge
+- Created and merged PR #1 (15 commits, merge commit `25ac66c`)
+- Deleted `feat/floating-card-shadow-title` branch (local + remote)
+
+### Light Mode Background Colors
+- **Canvas** (window behind card): `#F0E9E6` — warm beige
+- **Card** (terminal + title bar): `#FDF9F7` — warm white
+- **Sidebar**: transparent (unchanged)
+- Colors are appearance-aware: light mode uses explicit tokens, dark mode falls back to terminal config color
+- Added `viewDidChangeEffectiveAppearance()` to refresh on system theme change
+
+### Shadow Tuning
+- Terminal card shadow: `0.2` → `0.15` (all pinned-mode paths)
+- Overlay sidebar shadow: unchanged at `0.2`
+
+### Memory Updates
+- Saved auto-update TODO (Sparkle/ghostties.org) to project memory
+
+### Files Modified
+- `WorkspaceLayout.swift` — added `canvasBackgroundLight`, `cardBackgroundLight` color tokens
+- `WorkspaceViewContainer.swift` — appearance-aware `cardBackgroundCGColor`/`canvasBackgroundCGColor`, canvas layer background, shadow 0.2→0.15
+
+### Commits
+- `25ac66c` Merge pull request #1 (feat/floating-card-shadow-title → main)
+- `b7529e3` fix: light mode workspace background colors and softer card shadow
+
+---
+
 ## Feb 27, 2026 (Session 3)
 
 ### Title Styling Fix + Code Review Hardening
