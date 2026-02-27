@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -44,6 +45,12 @@ enum WorkspaceLayout {
 
     /// Background for active session row (light mode): 4% black.
     static let activeRowLight = Color.black.opacity(0.04)
+
+    /// Workspace canvas color behind the floating terminal card (light mode).
+    static let canvasBackgroundLight = NSColor(red: 0xF0 / 255.0, green: 0xE9 / 255.0, blue: 0xE6 / 255.0, alpha: 1)
+
+    /// Terminal card background including title bar region (light mode).
+    static let cardBackgroundLight = NSColor(red: 0xFD / 255.0, green: 0xF9 / 255.0, blue: 0xF7 / 255.0, alpha: 1)
 }
 
 // MARK: - Workspace Notifications

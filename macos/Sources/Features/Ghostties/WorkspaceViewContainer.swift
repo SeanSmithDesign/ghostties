@@ -90,9 +90,24 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     /// Tracking area for hover detection. Only one is active at a time.
     private var activeTrackingArea: NSTrackingArea?
 
-    /// Terminal background color from Ghostty config, used for the card title bar.
-    private var terminalBackgroundCGColor: CGColor {
-        NSColor(ghostty.config.backgroundColor).cgColor
+    private var isLightAppearance: Bool {
+        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+    }
+
+    /// Card background color for pinned mode title bar region.
+    /// Light mode: explicit warm white. Dark mode: terminal config color.
+    private var cardBackgroundCGColor: CGColor {
+        isLightAppearance
+            ? WorkspaceLayout.cardBackgroundLight.cgColor
+            : NSColor(ghostty.config.backgroundColor).cgColor
+    }
+
+    /// Canvas color behind the floating terminal card.
+    /// Light mode: warm beige. Dark mode: nil (use default window background).
+    private var canvasBackgroundCGColor: CGColor? {
+        isLightAppearance
+            ? WorkspaceLayout.canvasBackgroundLight.cgColor
+            : nil
     }
 
 
@@ -156,6 +171,13 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             name: NSWindow.didResignKeyNotification,
             object: window
         )
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        guard sidebarMode == .pinned else { return }
+        layer?.backgroundColor = canvasBackgroundCGColor
+        terminalShadowHost.layer?.backgroundColor = cardBackgroundCGColor
     }
 
     /// Zero out safe area insets so Auto Layout constraints measure from
@@ -305,9 +327,10 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         case .pinned:
             terminalContainer.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
             terminalContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-            terminalShadowHost.layer?.shadowOpacity = 0.2
+            terminalShadowHost.layer?.shadowOpacity = 0.15
             terminalShadowHost.layer?.cornerRadius = WorkspaceLayout.terminalCornerRadius
-            terminalShadowHost.layer?.backgroundColor = terminalBackgroundCGColor
+            terminalShadowHost.layer?.backgroundColor = cardBackgroundCGColor
+            layer?.backgroundColor = canvasBackgroundCGColor
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .closed:
             terminalContainer.layer?.cornerRadius = 0
@@ -315,6 +338,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             terminalShadowHost.layer?.shadowOpacity = 0
             terminalShadowHost.layer?.cornerRadius = 0
             terminalShadowHost.layer?.backgroundColor = nil
+            layer?.backgroundColor = nil
             sidebarOverlayBackground.layer?.shadowOpacity = 0
         case .overlay:
             terminalContainer.layer?.cornerRadius = 0
@@ -322,6 +346,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             terminalShadowHost.layer?.shadowOpacity = 0
             terminalShadowHost.layer?.cornerRadius = 0
             terminalShadowHost.layer?.backgroundColor = nil
+            layer?.backgroundColor = nil
             sidebarOverlayBackground.layer?.shadowOpacity = 0.2
         }
 
@@ -410,6 +435,9 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     // MARK: - Layout
 
     private func setup() {
+        // Canvas layer — the warm background visible behind the floating card.
+        wantsLayer = true
+
         // Z-order: background material → overlay background → sidebar → shadow host.
         addSubview(backgroundEffectView)
         addSubview(sidebarOverlayBackground)
@@ -508,7 +536,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         // layer exists (wantsLayer in a property closure may not create it in time).
         terminalShadowHost.wantsLayer = true
         terminalShadowHost.layer?.shadowColor = NSColor.black.cgColor
-        terminalShadowHost.layer?.shadowOpacity = isPinned ? 0.2 : 0
+        terminalShadowHost.layer?.shadowOpacity = isPinned ? 0.15 : 0
         terminalShadowHost.layer?.shadowRadius = 8
         terminalShadowHost.layer?.shadowOffset = CGSize(width: 0, height: -2)
 
@@ -516,7 +544,10 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         // must render outside the layer bounds.
         terminalShadowHost.layer?.cornerRadius = isPinned ? WorkspaceLayout.terminalCornerRadius : 0
         terminalShadowHost.layer?.cornerCurve = .continuous
-        terminalShadowHost.layer?.backgroundColor = isPinned ? terminalBackgroundCGColor : nil
+        terminalShadowHost.layer?.backgroundColor = isPinned ? cardBackgroundCGColor : nil
+
+        // Canvas background — visible behind the floating card in pinned mode.
+        layer?.backgroundColor = isPinned ? canvasBackgroundCGColor : nil
 
         // Background material is only visible in overlay (floating hover) mode.
         // In pinned mode the sidebar is transparent; in closed mode it's hidden entirely.
