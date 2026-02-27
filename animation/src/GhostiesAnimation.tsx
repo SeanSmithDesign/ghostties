@@ -9,17 +9,13 @@ import {
 import { Ghost } from "./components/Ghost";
 import { ghosts } from "./data/ghosts";
 
-const GHOST_SCALE = 2.5;
-const GHOST_SIZE = 48 * GHOST_SCALE; // 120px
+const GHOST_SCALE = 3.0;
+const GHOST_SIZE = 48 * GHOST_SCALE; // 144px
 const GHOST_GAP = 16;
 
 const GITHUB_URL = "https://github.com/SeanSmithDesign/ghostties";
 
 // Pyramid layout — matches Paper design
-// Row 0: 1 ghost (blinky)
-// Row 1: 2 ghosts (specter, inky)
-// Row 2: 3 ghosts (pinky, clyde, banshee)
-// Row 3: 2 ghosts (chill, dusk)
 const PYRAMID = [
   { ghost: ghosts[0], row: 0, col: 0, colsInRow: 1 },  // blinky — red
   { ghost: ghosts[4], row: 1, col: 0, colsInRow: 2 },  // specter — purple
@@ -29,6 +25,18 @@ const PYRAMID = [
   { ghost: ghosts[10], row: 2, col: 2, colsInRow: 3 }, // banshee — yellow
   { ghost: ghosts[17], row: 3, col: 0, colsInRow: 2 }, // chill — light blue
   { ghost: ghosts[23], row: 3, col: 1, colsInRow: 2 }, // dusk — indigo
+];
+
+// Scatter directions — each ghost flies off in a different direction
+const SCATTER_EXITS = [
+  { x: -600, y: -800 },   // blinky — upper-left
+  { x: 700, y: -600 },    // specter — upper-right
+  { x: -800, y: -200 },   // inky — left
+  { x: 800, y: 300 },     // pinky — right
+  { x: -500, y: 600 },    // clyde — lower-left
+  { x: 600, y: -700 },    // banshee — upper-right
+  { x: -700, y: 400 },    // chill — lower-left
+  { x: 500, y: 700 },     // dusk — lower-right
 ];
 
 const ROW_HEIGHT = GHOST_SIZE + GHOST_GAP;
@@ -48,31 +56,34 @@ const ghostX = (col: number, colsInRow: number, centerX: number) => {
 };
 
 export const GhostiesAnimation: React.FC = () => {
-  const frame = useCurrentFrame(); // no onTwos needed at 12fps
+  const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
 
   const centerX = width / 2;
 
-  // --- TIMING (all values halved from 30fps, roughly) ---
+  // --- TIMING (12fps) ---
   const SCOUT_ENTER = 0;
   const CMD_START = 20;
   const CREW_ENTER = 48;
   const INSTALL_START = 76;
   const LINK_START = 96;
-  const FADE_START = 136;
+  // URL is 47 chars at speed 1 → finishes at frame 143
+  // Hold for a beat, then scatter
+  const SCATTER_START = 150;
+  const SCATTER_END = 174; // 2 seconds of scatter
 
   // Pyramid vertical start — centered between top and text area
   const totalPyramidHeight = 4 * ROW_HEIGHT - GHOST_GAP;
-  const textAreaHeight = 250;
+  const textAreaHeight = 280;
   const availableHeight = height - textAreaHeight;
-  const pyramidTop = (availableHeight - totalPyramidHeight) / 2 + 20;
+  const pyramidTop = (availableHeight - totalPyramidHeight) / 2 + 10;
 
   // Terminal text — bottom area
-  const textLeft = 72;
-  const textBottom = 80;
+  const textLeft = 60;
+  const textBottom = 70;
 
-  // --- FADE OUT ---
-  const globalOpacity = interpolate(frame, [FADE_START, 152], [1, 0], {
+  // --- TEXT FADE during scatter ---
+  const textOpacity = interpolate(frame, [SCATTER_START, SCATTER_START + 6], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -105,7 +116,7 @@ export const GhostiesAnimation: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <div style={{ opacity: globalOpacity, width: "100%", height: "100%" }}>
+      <div style={{ width: "100%", height: "100%" }}>
         {/* Ghost pyramid */}
         {PYRAMID.map(({ ghost, row, col, colsInRow }, i) => {
           const isScout = i === 0;
@@ -134,9 +145,21 @@ export const GhostiesAnimation: React.FC = () => {
           const enterX = interpolate(sp, [0, 1], [enterFrom, 0]);
 
           const settled = frame > delay + 12;
-          const float = settled
+          const float = settled && frame < SCATTER_START
             ? Math.sin((frame - delay) * 0.12 + (i + 1) * 0.9) * 4.5
             : 0;
+
+          // Scatter exit — each ghost flies off in its own direction
+          const scatterProgress = interpolate(
+            frame,
+            [SCATTER_START + i * 2, SCATTER_START + i * 2 + 18],
+            [0, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          );
+          // Ease out cubic for natural acceleration
+          const eased = 1 - Math.pow(1 - scatterProgress, 3);
+          const scatterX = SCATTER_EXITS[i].x * eased;
+          const scatterY = SCATTER_EXITS[i].y * eased;
 
           const op = interpolate(sp, [0, 0.2], [0, 1], {
             extrapolateRight: "clamp",
@@ -147,8 +170,8 @@ export const GhostiesAnimation: React.FC = () => {
               key={ghost.name}
               style={{
                 position: "absolute",
-                left: targetX + enterX,
-                top: targetY + float,
+                left: targetX + enterX + scatterX,
+                top: targetY + float + scatterY,
                 opacity: op,
               }}
             >
@@ -165,9 +188,10 @@ export const GhostiesAnimation: React.FC = () => {
             right: textLeft,
             bottom: textBottom,
             fontFamily: "'SF Mono', 'Menlo', 'Courier New', monospace",
-            fontSize: 28,
-            lineHeight: 2.2,
+            fontSize: 34,
+            lineHeight: 2.0,
             color: "#e0e0e0",
+            opacity: textOpacity,
           }}
         >
           {showCmd && (
