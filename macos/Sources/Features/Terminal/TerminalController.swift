@@ -1177,16 +1177,26 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     // MARK: Workspace Sidebar
 
-    /// Configure the window for workspace mode: transparent titlebar with
-    /// all title text hidden. The workspace sidebar and its terminal-card
-    /// title label replace the native/toolbar title display.
+    /// Configure the window for workspace mode: invisible titlebar with
+    /// traffic lights at their natural position. The workspace sidebar
+    /// extends behind the titlebar and provides its own toolbar buttons.
     ///
-    /// Must be called after setting WorkspaceViewContainer as the contentView.
+    /// Must be called after setting WorkspaceViewContainer as the contentView
+    /// and after `awakeFromNib` has added the default titlebar accessories.
     private func configureWorkspaceTitlebar() {
         guard let window else { return }
 
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+
+        // Remove titlebar accessories (resetZoom, update notification) that
+        // the base TerminalWindow adds in awakeFromNib. These inflate the
+        // titlebar height and create a visible band. The workspace sidebar
+        // replaces their functionality.
+        while !window.titlebarAccessoryViewControllers.isEmpty {
+            window.removeTitlebarAccessoryViewController(at: 0)
+        }
     }
 
     @IBAction func toggleWorkspaceSidebar(_ sender: Any?) {

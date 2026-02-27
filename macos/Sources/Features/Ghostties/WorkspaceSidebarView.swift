@@ -39,6 +39,7 @@ struct WorkspaceSidebarView: View {
             Spacer(minLength: 0)
         }
         .background(.clear)
+        .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             // Restore persisted project selection, or default to the first project.
             if selectedProjectId == nil {
