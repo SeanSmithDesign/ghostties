@@ -23,9 +23,9 @@ struct WorkspacePersistenceTests {
 
     // MARK: - State Init
 
-    @Test func defaultStateHasSidebarVisible() {
+    @Test func defaultStateHasSidebarPinned() {
         let state = WorkspacePersistence.State()
-        #expect(state.sidebarVisible == true)
+        #expect(state.sidebarMode == .pinned)
     }
 
     @Test func defaultStateHasNilLastSelectedProjectId() {
@@ -36,10 +36,10 @@ struct WorkspacePersistenceTests {
     @Test func initWithAllParamsSetsSidebarAndSelection() {
         let uuid = UUID()
         let state = WorkspacePersistence.State(
-            sidebarVisible: false,
+            sidebarMode: .closed,
             lastSelectedProjectId: uuid
         )
-        #expect(state.sidebarVisible == false)
+        #expect(state.sidebarMode == .closed)
         #expect(state.lastSelectedProjectId == uuid)
     }
 
@@ -54,7 +54,7 @@ struct WorkspacePersistenceTests {
             projects: [project],
             sessions: [session],
             templates: [template],
-            sidebarVisible: false,
+            sidebarMode: .closed,
             lastSelectedProjectId: projectId
         )
 
@@ -69,12 +69,12 @@ struct WorkspacePersistenceTests {
         #expect(decoded.sessions[0].projectId == projectId)
         #expect(decoded.templates.count == 1)
         #expect(decoded.templates[0].name == "Custom")
-        #expect(decoded.sidebarVisible == false)
+        #expect(decoded.sidebarMode == .closed)
         #expect(decoded.lastSelectedProjectId == projectId)
     }
 
     @Test func decodingOldJsonWithoutNewFieldsUsesDefaults() throws {
-        // Simulates workspace.json from before sidebarVisible and lastSelectedProjectId existed.
+        // Simulates workspace.json from before sidebarMode and lastSelectedProjectId existed.
         let json = """
         {
             "projects": [],
@@ -85,11 +85,56 @@ struct WorkspacePersistenceTests {
         let data = Data(json.utf8)
         let decoded = try JSONDecoder().decode(WorkspacePersistence.State.self, from: data)
 
-        #expect(decoded.sidebarVisible == true)
+        #expect(decoded.sidebarMode == .pinned)
         #expect(decoded.lastSelectedProjectId == nil)
         #expect(decoded.projects.isEmpty)
         #expect(decoded.sessions.isEmpty)
         #expect(decoded.templates.isEmpty)
+    }
+
+    @Test func decodingLegacySidebarVisibleTrueMigratesToPinned() throws {
+        let json = """
+        {
+            "projects": [],
+            "sessions": [],
+            "templates": [],
+            "sidebarVisible": true
+        }
+        """
+        let data = Data(json.utf8)
+        let decoded = try JSONDecoder().decode(WorkspacePersistence.State.self, from: data)
+        #expect(decoded.sidebarMode == .pinned)
+    }
+
+    @Test func decodingLegacySidebarVisibleFalseMigratesToClosed() throws {
+        let json = """
+        {
+            "projects": [],
+            "sessions": [],
+            "templates": [],
+            "sidebarVisible": false
+        }
+        """
+        let data = Data(json.utf8)
+        let decoded = try JSONDecoder().decode(WorkspacePersistence.State.self, from: data)
+        #expect(decoded.sidebarMode == .closed)
+    }
+
+    @Test func decodingInvalidSidebarModeRawValueDefaultsToPinned() throws {
+        // An out-of-range raw value should gracefully default to .pinned,
+        // not throw a DecodingError that wipes all state.
+        let json = """
+        {
+            "projects": [],
+            "sessions": [],
+            "templates": [],
+            "sidebarMode": 99
+        }
+        """
+        let data = Data(json.utf8)
+        let decoded = try JSONDecoder().decode(WorkspacePersistence.State.self, from: data)
+        #expect(decoded.sidebarMode == .pinned)
+        #expect(decoded.projects.isEmpty)
     }
 
     // MARK: - Validation

@@ -32,8 +32,9 @@ struct WorkspacePersistence {
         var sessions: [AgentSession]
         var templates: [SessionTemplate]
 
-        /// Whether the sidebar was visible when the app last saved state.
-        var sidebarVisible: Bool
+        /// Sidebar mode when the app last saved state.
+        /// `.overlay` is transient — always persisted as `.closed`.
+        var sidebarMode: SidebarMode
 
         /// The last selected project ID, for restoring selection on launch.
         var lastSelectedProjectId: UUID?
@@ -42,14 +43,20 @@ struct WorkspacePersistence {
             projects: [Project] = [],
             sessions: [AgentSession] = [],
             templates: [SessionTemplate] = [],
-            sidebarVisible: Bool = true,
+            sidebarMode: SidebarMode = .pinned,
             lastSelectedProjectId: UUID? = nil
         ) {
             self.projects = projects
             self.sessions = sessions
             self.templates = templates
-            self.sidebarVisible = sidebarVisible
+            self.sidebarMode = sidebarMode
             self.lastSelectedProjectId = lastSelectedProjectId
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case projects, sessions, templates, sidebarMode, lastSelectedProjectId
+            // Legacy key for backward compatibility.
+            case sidebarVisible
         }
 
         init(from decoder: Decoder) throws {
@@ -57,8 +64,29 @@ struct WorkspacePersistence {
             self.projects = try container.decodeIfPresent([Project].self, forKey: .projects) ?? []
             self.sessions = try container.decodeIfPresent([AgentSession].self, forKey: .sessions) ?? []
             self.templates = try container.decodeIfPresent([SessionTemplate].self, forKey: .templates) ?? []
-            self.sidebarVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarVisible) ?? true
             self.lastSelectedProjectId = try container.decodeIfPresent(UUID.self, forKey: .lastSelectedProjectId)
+
+            // Try new sidebarMode first; fall back to legacy sidebarVisible bool.
+            // Decode as raw Int to avoid a DecodingError (and full state wipe) on
+            // unknown raw values — gracefully fall through to the default instead.
+            if let rawMode = try container.decodeIfPresent(Int.self, forKey: .sidebarMode),
+               let mode = SidebarMode(rawValue: rawMode) {
+                self.sidebarMode = mode
+            } else if let visible = try container.decodeIfPresent(Bool.self, forKey: .sidebarVisible) {
+                self.sidebarMode = visible ? .pinned : .closed
+            } else {
+                self.sidebarMode = .pinned
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(projects, forKey: .projects)
+            try container.encode(sessions, forKey: .sessions)
+            try container.encode(templates, forKey: .templates)
+            try container.encode(sidebarMode, forKey: .sidebarMode)
+            try container.encodeIfPresent(lastSelectedProjectId, forKey: .lastSelectedProjectId)
+            // Omit the legacy sidebarVisible key on new writes.
         }
     }
 

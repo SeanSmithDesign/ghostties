@@ -21,9 +21,10 @@ final class WorkspaceStore: ObservableObject {
     /// Coordinators write via `updateSessionStatus`; views read directly.
     @Published private(set) var globalStatuses: [UUID: SessionStatus] = [:]
 
-    /// Whether the sidebar should be visible. Persisted across launches.
-    var sidebarVisible: Bool = true {
-        didSet { if oldValue != sidebarVisible { persist() } }
+    /// Current sidebar mode. Persisted across launches.
+    /// `.overlay` is transient — always saved as `.closed`.
+    var sidebarMode: SidebarMode = .pinned {
+        didSet { if oldValue != sidebarMode { persist() } }
     }
 
     /// The last selected project ID, used to restore selection on launch.
@@ -35,7 +36,7 @@ final class WorkspaceStore: ObservableObject {
         let state = WorkspacePersistence.load()
         self.projects = state.projects
         self.sessions = state.sessions
-        self.sidebarVisible = state.sidebarVisible
+        self.sidebarMode = state.sidebarMode
         self.lastSelectedProjectId = state.lastSelectedProjectId
 
         // Merge persisted custom templates with built-in defaults.
@@ -271,15 +272,17 @@ final class WorkspaceStore: ObservableObject {
 
     private func persist() {
         persistTask?.cancel()
-        persistTask = Task { [projects, sessions, templates, sidebarVisible, lastSelectedProjectId] in
+        persistTask = Task { [projects, sessions, templates, sidebarMode, lastSelectedProjectId] in
             try? await Task.sleep(for: .milliseconds(100))
             guard !Task.isCancelled else { return }
             let customTemplates = templates.filter { !$0.isDefault }
+            // Overlay is transient — persist as closed so next launch starts closed.
+            let persistedMode: SidebarMode = sidebarMode == .overlay ? .closed : sidebarMode
             let state = WorkspacePersistence.State(
                 projects: projects,
                 sessions: sessions,
                 templates: customTemplates,
-                sidebarVisible: sidebarVisible,
+                sidebarMode: persistedMode,
                 lastSelectedProjectId: lastSelectedProjectId
             )
             await Task.detached(priority: .utility) {
