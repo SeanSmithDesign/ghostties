@@ -85,9 +85,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     /// Tracking area for hover detection. Only one is active at a time.
     private var activeTrackingArea: NSTrackingArea?
 
-    /// Cached reference to the native titlebar text field to avoid
-    /// recursive view hierarchy traversal on every window title change.
-    private weak var cachedTitlebarTextField: NSTextField?
 
     init(ghostty: Ghostty.App, viewModel: ViewModel, delegate: (any TerminalViewDelegate)? = nil) {
         self.terminalContainer = TerminalViewContainer(
@@ -118,7 +115,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        titleObservation?.invalidate()
     }
 
     override func viewDidMoveToWindow() {
@@ -126,9 +122,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
 
         // Clean up previous window's observers (handles view moving between windows).
         NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
-        titleObservation?.invalidate()
-        titleObservation = nil
-        cachedTitlebarTextField = nil
 
         guard let window = window else { return }
         // Give the coordinator a reference to this view so it can discover
@@ -141,14 +134,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
 
         // Extend content under titlebar — traffic lights appear inside the sidebar panel.
         window.styleMask.insert(.fullSizeContentView)
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-
-        // Hide the native titlebar title text. The session name label inside the
-        // terminal card replaces it. We must re-hide on every title change because
-        // macOS re-shows the text field when window.title is updated.
-        hideTitlebarTextField(in: window)
-        observeWindowTitle(window)
 
         // Apply initial traffic light visibility.
         setTrafficLightsHidden(sidebarMode == .closed)
@@ -192,33 +177,6 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
             rect: sidebarOverlayBackground.bounds,
             transform: nil
         )
-    }
-
-    // MARK: - Titlebar
-
-    /// Observe window title changes so we can re-hide the titlebar text field.
-    /// macOS automatically re-shows it whenever `window.title` is updated.
-    private var titleObservation: NSKeyValueObservation?
-
-    private func hideTitlebarTextField(in window: NSWindow) {
-        if let cached = cachedTitlebarTextField {
-            cached.isHidden = true
-            return
-        }
-        // Find the text field through the theme frame (same path as TerminalWindow.titlebarTextField).
-        if let themeFrame = window.contentView?.superview,
-           let titleBarView = themeFrame.firstDescendant(withClassName: "NSTitlebarContainerView")?
-            .firstDescendant(withClassName: "NSTitlebarView"),
-           let textField = titleBarView.firstDescendant(withClassName: "NSTextField") as? NSTextField {
-            cachedTitlebarTextField = textField
-            textField.isHidden = true
-        }
-    }
-
-    private func observeWindowTitle(_ window: NSWindow) {
-        titleObservation = window.observe(\.title, options: [.new]) { [weak self] window, _ in
-            self?.hideTitlebarTextField(in: window)
-        }
     }
 
     // MARK: - Traffic Lights

@@ -7,35 +7,11 @@ import GhosttyKit
 /// A classic, tabbed terminal experience.
 class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Controller {
     override var windowNibName: NSNib.Name? {
-        let defaultValue = "Terminal"
-
-        guard let appDelegate = NSApp.delegate as? AppDelegate else { return defaultValue }
-        let config = appDelegate.ghostty.config
-
-        // If we have no window decorations, there's no reason to do anything but
-        // the default titlebar (because there will be no titlebar).
-        if !config.windowDecorations {
-            return defaultValue
-        }
-
-        let nib = switch config.macosTitlebarStyle {
-        case "native": "Terminal"
-        case "hidden": "TerminalHiddenTitlebar"
-        case "transparent": "TerminalTransparentTitlebar"
-        case "tabs":
-#if compiler(>=6.2)
-            if #available(macOS 26.0, *) {
-                "TerminalTabsTitlebarTahoe"
-            } else {
-                "TerminalTabsTitlebarVentura"
-            }
-#else
-            "TerminalTabsTitlebarVentura"
-#endif
-        default: defaultValue
-        }
-
-        return nib
+        // Workspace mode always uses the base Terminal nib. The sidebar
+        // replaces native tabs and provides its own titlebar appearance,
+        // so we bypass macosTitlebarStyle entirely to avoid fighting
+        // complex titlebar subclasses (TitlebarTabsVenturaTerminalWindow, etc.).
+        return "Terminal"
     }
 
     /// This is set to true when we care about frame changes. This is a small optimization since
@@ -1046,6 +1022,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             delegate: self,
         )
 
+        // Hide the native titlebar text — the workspace sidebar's title label
+        // inside the terminal card replaces it.
+        configureWorkspaceTitlebar()
+
         // If we have a default size, we want to apply it.
         if let defaultSize {
             switch defaultSize {
@@ -1196,6 +1176,18 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     }
 
     // MARK: Workspace Sidebar
+
+    /// Configure the window for workspace mode: transparent titlebar with
+    /// all title text hidden. The workspace sidebar and its terminal-card
+    /// title label replace the native/toolbar title display.
+    ///
+    /// Must be called after setting WorkspaceViewContainer as the contentView.
+    private func configureWorkspaceTitlebar() {
+        guard let window else { return }
+
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+    }
 
     @IBAction func toggleWorkspaceSidebar(_ sender: Any?) {
         guard let container = window?.contentView as? WorkspaceViewContainer<TerminalController> else { return }
