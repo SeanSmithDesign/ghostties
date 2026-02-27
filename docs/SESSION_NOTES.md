@@ -1,5 +1,37 @@
 # Session Notes — Ghostties
 
+## Feb 26, 2026 (Late Night)
+
+### Titlebar Hiding — Force Base Terminal Nib
+
+Fixed the native macOS window titlebar that persisted in workspace mode despite multiple hiding attempts. The root cause was `macos-titlebar-style = tabs` in user config, which loaded `TitlebarTabsVenturaTerminalWindow` — a complex subclass with its own toolbar title rendering and titlebar background painting that overrode all standard NSWindow hiding APIs.
+
+### Investigation Trail (4 failed approaches → 1 solution)
+
+1. **KVO + isHidden on NSTextField** — macOS resets `isHidden` internally
+2. **alphaValue + async dispatch** — targeted wrong element (native NSTextField vs custom TerminalToolbar)
+3. **toolbar = nil** — removed "~" text but titlebar band remained (subclass paints `titlebarContainer.layer?.backgroundColor`)
+4. **Clear titlebar background** — `syncAppearance()` immediately repainted it
+5. **Force base "Terminal" nib** — bypasses the complex subclass entirely; `titleVisibility = .hidden` + `titlebarAppearsTransparent = true` work correctly on the base `TerminalWindow`
+
+### Files Modified
+- `TerminalController.swift` — `windowNibName` forced to "Terminal", added `configureWorkspaceTitlebar()`
+- `WorkspaceViewContainer.swift` — removed KVO title observer, cached text field, and title-hiding workarounds (-42 lines)
+
+### New Files Created
+- `docs/solutions/architecture/nib-window-subclass-titlebar-hiding.md` — full solution documentation
+
+### Commits
+- `509fc927f` fix(titlebar): force base Terminal nib to hide workspace titlebar
+
+### Notes for Next Session
+- Titlebar is now transparent with no visible title text
+- Sidebar state machine (pinned/closed/overlay) still working correctly
+- 7 manual testing findings from Feb 20-22 still pending
+- More workspace sidebar work remains
+
+---
+
 ## Feb 26, 2026 (Evening)
 
 ### 3-State Sidebar State Machine + Code Review + Design Review
