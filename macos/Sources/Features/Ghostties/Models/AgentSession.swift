@@ -45,11 +45,58 @@ struct AgentSession: Identifiable, Codable, Hashable {
 // MARK: - Runtime State
 
 /// Live status of a running session. Not persisted.
-enum SessionStatus {
+enum SessionStatus: Equatable {
     /// Process is alive and running.
     case running
     /// Process exited naturally (process_alive was false when surface closed).
     case exited
+    /// Command completed successfully (exit code 0).
+    case completed
+    /// Command failed with a non-zero exit code.
+    case error(exitCode: Int16)
     /// Surface was closed while the process was still running (force-killed by user).
     case killed
+
+    /// Whether the underlying process is still alive.
+    var isAlive: Bool {
+        switch self {
+        case .running: return true
+        case .exited, .completed, .error, .killed: return false
+        }
+    }
+}
+
+// MARK: - Indicator State
+
+/// View-layer state combining lifecycle status + output activity.
+///
+/// `SessionStatus` tracks *what happened* to the process. This enum tracks
+/// *what the user should see* — it folds in output recency so the ghost indicator
+/// can distinguish "actively producing output" from "alive but idle."
+///
+/// Conforms to `Comparable` so project headers can aggregate by priority:
+/// error > active > waiting > killed > completed > exited.
+enum SessionIndicatorState: Comparable {
+    case exited
+    case completed
+    case killed
+    case waiting
+    case active
+    case error
+
+    /// The priority for aggregation — higher value wins in project headers.
+    private var priority: Int {
+        switch self {
+        case .exited:    return 0
+        case .completed: return 1
+        case .killed:    return 2
+        case .waiting:   return 3
+        case .active:    return 4
+        case .error:     return 5
+        }
+    }
+
+    static func < (lhs: SessionIndicatorState, rhs: SessionIndicatorState) -> Bool {
+        lhs.priority < rhs.priority
+    }
 }

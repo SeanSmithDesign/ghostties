@@ -45,6 +45,12 @@ extension Ghostty {
         // The hovered URL string
         @Published var hoverUrl: String?
 
+        // Signals terminal output activity (title change as proxy).
+        // SessionCoordinator subscribes to this to distinguish active vs waiting.
+        // Intentionally non-@Published to avoid triggering SurfaceView's
+        // objectWillChange (which would re-render the terminal view itself).
+        let lastOutputSubject = PassthroughSubject<Void, Never>()
+
         // The progress report (if any)
         @Published var progressReport: Action.ProgressReport? {
             didSet {
@@ -594,6 +600,10 @@ extension Ghostty {
         }
 
         func setTitle(_ title: String) {
+            // Signal output activity — title changes are a reliable proxy for
+            // terminal activity (shell integration prompts, PWD changes, etc.).
+            lastOutputSubject.send()
+
             // This fixes an issue where very quick changes to the title could
             // cause an unpleasant flickering. We set a timer so that we can
             // coalesce rapid changes. The timer is short enough that it still

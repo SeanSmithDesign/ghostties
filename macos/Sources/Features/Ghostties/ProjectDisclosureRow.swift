@@ -31,7 +31,7 @@ struct ProjectDisclosureRow: View {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     SessionRow(
                         session: session,
-                        status: store.globalStatuses[session.id] ?? coordinator.statuses[session.id] ?? .exited,
+                        indicatorState: coordinator.indicatorState(for: session.id),
                         ghostCharacter: project.ghostCharacter,
                         isActive: coordinator.activeSessionId == session.id,
                         isEditing: editingSessionId == session.id,
@@ -118,7 +118,7 @@ struct ProjectDisclosureRow: View {
         } label: {
             HStack(spacing: 4) {
                 PixelChevronView(
-                    color: projectHasRunning ? Color(nsColor: .systemGreen) : Color(.tertiaryLabelColor),
+                    color: projectHeaderColor,
                     isExpanded: isExpanded
                 )
 
@@ -194,12 +194,22 @@ struct ProjectDisclosureRow: View {
 
     // MARK: - Status
 
-    private var projectHasRunning: Bool {
-        store.sessions(for: project.id).contains { session in
-            let status = store.globalStatuses[session.id]
-                ?? coordinator.statuses[session.id]
-                ?? .exited
-            return status == .running
+    /// The highest-priority indicator state among all sessions in this project.
+    private var projectHeaderIndicator: SessionIndicatorState {
+        store.sessions(for: project.id)
+            .map { coordinator.indicatorState(for: $0.id) }
+            .max() ?? .exited
+    }
+
+    /// Map the aggregated indicator to a chevron color (same palette as session rows).
+    private var projectHeaderColor: Color {
+        switch projectHeaderIndicator {
+        case .active:    return Color(nsColor: .systemGreen)
+        case .waiting:   return WorkspaceLayout.waitingTerracotta
+        case .completed: return Color(.tertiaryLabelColor)
+        case .error:     return Color(nsColor: .systemRed)
+        case .killed:    return Color(nsColor: .systemRed).opacity(0.6)
+        case .exited:    return Color(.tertiaryLabelColor)
         }
     }
 

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import GhosttyKit
 
@@ -46,10 +47,29 @@ final class SessionCoordinator: ObservableObject {
     /// project in the icon rail can restore the correct terminal session.
     private(set) var lastActiveSessionPerProject: [UUID: UUID] = [:]
 
+    /// Tracks when each session last produced output (title change as proxy).
+    /// Used with the activity threshold to distinguish active vs waiting.
+    private var lastOutputTimestamps: [UUID: ContinuousClock.Instant] = [:]
+
+    /// Combine subscriptions for each session's root surface `$lastOutputDate`.
+    private var outputSubscriptions: [UUID: AnyCancellable] = [:]
+
+    /// Exit codes received from `GHOSTTY_ACTION_COMMAND_FINISHED` before the surface closes.
+    /// Keyed by surface ID (not session ID) since the notification targets a surface.
+    private var pendingExitCodes: [UUID: Int16] = [:]
+
+    /// 1-second timer that triggers view re-evaluation for activity state transitions.
+    private var activityTimer: Timer?
+
+    /// How long after the last output before a running session transitions to "waiting."
+    private static let activityThreshold: ContinuousClock.Duration = .seconds(2)
+
     init(ghostty: Ghostty.App) {
         self.ghostty = ghostty
         observeLifecycle()
         observeProjectRemoval()
+        observeCommandFinished()
+        startActivityTimer()
     }
 
     // MARK: - Session Creation
@@ -93,6 +113,7 @@ final class SessionCoordinator: ObservableObject {
 
         sessionTrees[session.id] = newTree
         setStatus(.running, for: session.id)
+        subscribeToOutput(surface: newView, sessionId: session.id)
         activeSessionId = session.id
         lastActiveSessionPerProject[session.projectId] = session.id
 
@@ -167,7 +188,8 @@ final class SessionCoordinator: ObservableObject {
 
         // Remove from our tracking first, then close surfaces via the controller.
         sessionTrees.removeValue(forKey: id)
-        setStatus(.exited, for: id)
+        outputSubscriptions.removeValue(forKey: id)
+        setStatus(.killed, for: id)
 
         // If this was the active session, switch to another running session.
         if activeSessionId == id {
@@ -185,6 +207,8 @@ final class SessionCoordinator: ObservableObject {
     func clearRuntime(id: UUID) {
         sessionTrees.removeValue(forKey: id)
         statuses.removeValue(forKey: id)
+        outputSubscriptions.removeValue(forKey: id)
+        lastOutputTimestamps.removeValue(forKey: id)
         WorkspaceStore.shared.removeSessionStatus(id: id)
     }
 
@@ -292,6 +316,18 @@ final class SessionCoordinator: ObservableObject {
 
         let processAlive = notification.userInfo?["process_alive"] as? Bool ?? false
 
+        // Resolve the exit status using cached exit codes from COMMAND_FINISHED.
+        let exitStatus: SessionStatus = {
+            if processAlive { return .killed }
+            let exitCode = pendingExitCodes.removeValue(forKey: closedSurface.id)
+            switch exitCode {
+            case .none:        return .exited      // No shell integration — fallback
+            case .some(-1):    return .exited      // Shell integration present but no exit code reported
+            case .some(0):     return .completed
+            case .some(let c): return .error(exitCode: c)
+            }
+        }()
+
         // For the active session, read the live tree from the controller (which
         // BaseTerminalController has already updated to remove the closed surface).
         // For background sessions, remove the surface from our stored tree.
@@ -300,7 +336,8 @@ final class SessionCoordinator: ObservableObject {
                 let liveTree = controller.surfaceTree
                 if liveTree.isEmpty {
                     sessionTrees.removeValue(forKey: sessionId)
-                    setStatus(processAlive ? .killed : .exited, for: sessionId)
+                    outputSubscriptions.removeValue(forKey: sessionId)
+                    setStatus(exitStatus, for: sessionId)
                     switchToNextSession()
                 } else {
                     sessionTrees[sessionId] = liveTree
@@ -313,7 +350,8 @@ final class SessionCoordinator: ObservableObject {
                 let updated = tree.removing(node)
                 if updated.isEmpty {
                     sessionTrees.removeValue(forKey: sessionId)
-                    setStatus(processAlive ? .killed : .exited, for: sessionId)
+                    outputSubscriptions.removeValue(forKey: sessionId)
+                    setStatus(exitStatus, for: sessionId)
                 } else {
                     sessionTrees[sessionId] = updated
                 }
@@ -413,6 +451,84 @@ final class SessionCoordinator: ObservableObject {
         return nil
     }
 
+    // MARK: - Activity Tracking
+
+    /// Subscribe to a session's root surface output activity via Combine.
+    private func subscribeToOutput(surface: Ghostty.SurfaceView, sessionId: UUID) {
+        outputSubscriptions[sessionId] = surface.lastOutputSubject
+            .sink { [weak self] in
+                self?.lastOutputTimestamps[sessionId] = .now
+            }
+    }
+
+    /// Observe `GHOSTTY_ACTION_COMMAND_FINISHED` to cache exit codes before surfaces close.
+    private func observeCommandFinished() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(commandDidFinish(_:)),
+            name: Ghostty.Notification.ghosttyCommandFinished,
+            object: nil
+        )
+    }
+
+    @objc private func commandDidFinish(_ notification: Notification) {
+        guard let surface = notification.object as? Ghostty.SurfaceView,
+              let exitCode = notification.userInfo?["exit_code"] as? Int16,
+              sessionId(for: surface) != nil else { return }
+        // Cache the exit code keyed by surface ID. It will be consumed in handleSurfaceClose.
+        pendingExitCodes[surface.id] = exitCode
+    }
+
+    /// Start a 1-second repeating timer that triggers view re-evaluation.
+    ///
+    /// This is how the sidebar detects the active→waiting transition: the timer
+    /// fires, `objectWillChange` causes SwiftUI to re-read `indicatorState(for:)`,
+    /// and the 2-second threshold comparison returns a different result.
+    private func startActivityTimer() {
+        activityTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Only fire objectWillChange if there are running sessions that could transition.
+                let hasRunning = self.statuses.values.contains { $0.isAlive }
+                if hasRunning {
+                    self.objectWillChange.send()
+                }
+            }
+        }
+    }
+
+    /// Compute the view-layer indicator state for a session.
+    ///
+    /// Combines lifecycle status (what happened to the process) with output recency
+    /// (how recently the terminal produced output) into a single visual state.
+    func indicatorState(for sessionId: UUID) -> SessionIndicatorState {
+        let status = statuses[sessionId]
+            ?? WorkspaceStore.shared.globalStatuses[sessionId]
+            ?? .exited
+
+        switch status {
+        case .running:
+            // Check if the session has produced output recently.
+            if let lastOutput = lastOutputTimestamps[sessionId],
+               ContinuousClock.now - lastOutput < Self.activityThreshold {
+                return .active
+            }
+            return .waiting
+
+        case .completed:
+            return .completed
+
+        case .error:
+            return .error
+
+        case .killed:
+            return .killed
+
+        case .exited:
+            return .exited
+        }
+    }
+
     /// Update a session's status locally and in the global store.
     private func setStatus(_ status: SessionStatus, for id: UUID) {
         statuses[id] = status
@@ -420,6 +536,7 @@ final class SessionCoordinator: ObservableObject {
     }
 
     deinit {
+        activityTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
         // Clean up this coordinator's session entries from the global store.
         // SessionCoordinator is always deallocated on the main thread (UI object),

@@ -51,6 +51,9 @@ enum WorkspaceLayout {
 
     /// Terminal card background including title bar region (light mode).
     static let cardBackgroundLight = NSColor(red: 0xFD / 255.0, green: 0xF9 / 255.0, blue: 0xF7 / 255.0, alpha: 1)
+
+    /// Terracotta/warm rust accent for the "waiting" indicator state. #c97350
+    static let waitingTerracotta = Color(red: 0.788, green: 0.451, blue: 0.314)
 }
 
 // MARK: - Workspace Notifications

@@ -3,10 +3,11 @@ import SwiftUI
 /// A single session row: name + ghost character status indicator.
 ///
 /// Used by ProjectDisclosureRow to render sessions under each project.
-/// Ghost character appears on the right, colored by session status.
+/// Ghost character appears on the right, colored by session indicator state.
+/// Supports bounce animation (active), completed flash, and reduce-motion.
 struct SessionRow: View {
     let session: AgentSession
-    let status: SessionStatus
+    let indicatorState: SessionIndicatorState
     var ghostCharacter: GhostCharacter? = nil
     var isActive: Bool = false
     var isEditing: Bool = false
@@ -17,6 +18,13 @@ struct SessionRow: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
+    @State private var isBouncing = false
+    @State private var completedFlashActive = false
+
+    /// Whether animations should be suppressed (Reduce Motion preference).
+    private var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -53,6 +61,12 @@ struct SessionRow: View {
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+        .onChange(of: indicatorState) { newState in
+            updateAnimations(for: newState)
+        }
+        .onAppear {
+            updateAnimations(for: indicatorState)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(session.name), \(statusLabel)\(isActive ? ", active" : "")")
     }
@@ -61,6 +75,20 @@ struct SessionRow: View {
 
     @ViewBuilder
     private var ghostIndicator: some View {
+        let indicator = indicatorContent
+            .offset(y: isBouncing && !reduceMotion ? -2 : 0)
+            .animation(
+                isBouncing && !reduceMotion
+                    ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true)
+                    : .default,
+                value: isBouncing
+            )
+
+        indicator
+    }
+
+    @ViewBuilder
+    private var indicatorContent: some View {
         if let ghost = ghostCharacter {
             GhostCharacterView(character: ghost, color: statusColor)
                 .frame(width: 12, height: 12)
@@ -76,10 +104,17 @@ struct SessionRow: View {
     // MARK: - Colors
 
     private var statusColor: Color {
-        switch status {
-        case .running: return Color(nsColor: .systemGreen)
-        case .exited: return Color(.tertiaryLabelColor)
-        case .killed: return Color(nsColor: .systemRed)
+        if completedFlashActive {
+            return Color(nsColor: .systemGreen)
+        }
+
+        switch indicatorState {
+        case .active:    return Color(nsColor: .systemGreen)
+        case .waiting:   return WorkspaceLayout.waitingTerracotta
+        case .completed: return Color(.tertiaryLabelColor)
+        case .error:     return Color(nsColor: .systemRed)
+        case .killed:    return Color(nsColor: .systemRed).opacity(0.6)
+        case .exited:    return Color(.tertiaryLabelColor)
         }
     }
 
@@ -100,10 +135,32 @@ struct SessionRow: View {
     }
 
     private var statusLabel: String {
-        switch status {
-        case .running: return "running"
-        case .exited: return "exited"
-        case .killed: return "killed"
+        switch indicatorState {
+        case .active:    return "active"
+        case .waiting:   return "waiting"
+        case .completed: return "completed"
+        case .error:     return "error"
+        case .killed:    return "killed"
+        case .exited:    return "exited"
+        }
+    }
+
+    // MARK: - Animation Control
+
+    private func updateAnimations(for state: SessionIndicatorState) {
+        // Bounce: only when active
+        isBouncing = (state == .active)
+
+        // Completed flash: green for 1.5s then crossfade to gray
+        if state == .completed && !reduceMotion {
+            completedFlashActive = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    completedFlashActive = false
+                }
+            }
+        } else {
+            completedFlashActive = false
         }
     }
 }

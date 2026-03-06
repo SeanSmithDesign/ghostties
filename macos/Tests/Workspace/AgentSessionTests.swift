@@ -5,16 +5,44 @@ import Testing
 struct AgentSessionTests {
     // MARK: - SessionStatus
 
-    @Test func sessionStatusHasThreeCases() {
-        // Verify all three cases exist and are distinct.
+    @Test func sessionStatusHasAllCases() {
+        // Verify all cases exist and are distinct.
         let running: SessionStatus = .running
         let exited: SessionStatus = .exited
+        let completed: SessionStatus = .completed
+        let error: SessionStatus = .error(exitCode: 1)
         let killed: SessionStatus = .killed
 
         // Use if-case to confirm each case pattern-matches correctly.
         if case .running = running {} else { Issue.record("expected .running") }
         if case .exited = exited {} else { Issue.record("expected .exited") }
+        if case .completed = completed {} else { Issue.record("expected .completed") }
+        if case .error = error {} else { Issue.record("expected .error") }
         if case .killed = killed {} else { Issue.record("expected .killed") }
+    }
+
+    @Test func sessionStatusIsAlive() {
+        #expect(SessionStatus.running.isAlive == true)
+        #expect(SessionStatus.exited.isAlive == false)
+        #expect(SessionStatus.completed.isAlive == false)
+        #expect(SessionStatus.error(exitCode: 1).isAlive == false)
+        #expect(SessionStatus.killed.isAlive == false)
+    }
+
+    @Test func sessionStatusEquatable() {
+        #expect(SessionStatus.running == .running)
+        #expect(SessionStatus.error(exitCode: 1) == .error(exitCode: 1))
+        #expect(SessionStatus.error(exitCode: 1) != .error(exitCode: 2))
+        #expect(SessionStatus.completed != .exited)
+    }
+
+    // MARK: - SessionIndicatorState
+
+    @Test func indicatorStatePriority() {
+        // Error is highest priority, exited is lowest.
+        let states: [SessionIndicatorState] = [.exited, .active, .error, .waiting, .completed, .killed]
+        let sorted = states.sorted()
+        #expect(sorted == [.exited, .completed, .killed, .waiting, .active, .error])
     }
 
     // MARK: - AgentSession Init
