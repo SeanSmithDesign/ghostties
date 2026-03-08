@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Used by ProjectDisclosureRow to render sessions under each project.
 /// Ghost character appears on the right, colored by session indicator state.
-/// Supports bounce animation (active), completed flash, and reduce-motion.
+/// Supports bounce animation (processing), pulse animation (waiting), and reduce-motion.
 struct SessionRow: View {
     let session: AgentSession
     let indicatorState: SessionIndicatorState
@@ -19,7 +19,7 @@ struct SessionRow: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
     @State private var isBouncing = false
-    @State private var completedFlashActive = false
+    @State private var isPulsing = false
 
     /// Whether animations should be suppressed (Reduce Motion preference).
     private var reduceMotion: Bool {
@@ -40,8 +40,8 @@ struct SessionRow: View {
                     }
             } else {
                 Text(session.name)
-                    .font(.system(size: 12))
-                    .foregroundColor(isActive ? .primary : inactiveTextColor)
+                    .font(.system(size: 12, weight: indicatorState == .waiting ? .medium : .regular))
+                    .foregroundColor(sessionTextColor)
                     .lineLimit(1)
             }
 
@@ -83,6 +83,13 @@ struct SessionRow: View {
                     : .default,
                 value: isBouncing
             )
+            .opacity(isPulsing && !reduceMotion ? 0.6 : 1.0)
+            .animation(
+                isPulsing && !reduceMotion
+                    ? .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+                    : .default,
+                value: isPulsing
+            )
 
         indicator
     }
@@ -90,7 +97,11 @@ struct SessionRow: View {
     @ViewBuilder
     private var indicatorContent: some View {
         if let ghost = ghostCharacter {
-            GhostCharacterView(character: ghost, color: statusColor)
+            GhostCharacterView(
+                character: ghost,
+                color: statusColor,
+                style: indicatorState == .inactive ? .outline : .filled
+            )
                 .frame(width: 12, height: 12)
                 .frame(width: 16, height: 16)
         } else {
@@ -104,22 +115,24 @@ struct SessionRow: View {
     // MARK: - Colors
 
     private var statusColor: Color {
-        if completedFlashActive {
-            return Color(nsColor: .systemGreen)
-        }
-
         switch indicatorState {
-        case .active:    return Color(nsColor: .systemGreen)
-        case .waiting:   return WorkspaceLayout.waitingTerracotta
-        case .completed: return Color(.tertiaryLabelColor)
-        case .error:     return Color(nsColor: .systemRed)
-        case .killed:    return Color(nsColor: .systemRed).opacity(0.6)
-        case .exited:    return Color(.tertiaryLabelColor)
+        case .processing:  return Color(nsColor: .systemGreen)
+        case .waiting:     return WorkspaceLayout.waitingTerracotta
+        case .longRunning: return Color(nsColor: .systemYellow)
+        case .idle:        return Color(.secondaryLabelColor)
+        case .error:       return Color(nsColor: .systemRed)
+        case .inactive:    return Color(.tertiaryLabelColor)
         }
     }
 
-    private var inactiveTextColor: Color {
-        Color(.secondaryLabelColor)
+    private var sessionTextColor: Color {
+        if isActive { return .primary }
+        switch indicatorState {
+        case .waiting, .processing, .longRunning: return .primary
+        case .idle:     return Color(.secondaryLabelColor)
+        case .inactive: return Color(.tertiaryLabelColor)
+        case .error:    return .primary
+        }
     }
 
     private var rowBackground: Color {
@@ -136,31 +149,19 @@ struct SessionRow: View {
 
     private var statusLabel: String {
         switch indicatorState {
-        case .active:    return "active"
-        case .waiting:   return "waiting"
-        case .completed: return "completed"
-        case .error:     return "error"
-        case .killed:    return "killed"
-        case .exited:    return "exited"
+        case .processing:  return "processing"
+        case .waiting:     return "waiting for input"
+        case .longRunning: return "running for a long time"
+        case .idle:        return "idle"
+        case .error:       return "error"
+        case .inactive:    return "inactive"
         }
     }
 
     // MARK: - Animation Control
 
     private func updateAnimations(for state: SessionIndicatorState) {
-        // Bounce: only when active
-        isBouncing = (state == .active)
-
-        // Completed flash: green for 1.5s then crossfade to gray
-        if state == .completed && !reduceMotion {
-            completedFlashActive = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    completedFlashActive = false
-                }
-            }
-        } else {
-            completedFlashActive = false
-        }
+        isBouncing = (state == .processing)
+        isPulsing = (state == .waiting)
     }
 }

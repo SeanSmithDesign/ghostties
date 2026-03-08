@@ -440,6 +440,9 @@ extension Ghostty.Notification {
     /// A shell-integration command finished (carries exit_code and duration in userInfo).
     static let ghosttyCommandFinished = Notification.Name("com.seansmithdesign.ghostties.commandFinished")
 
+    /// The shell prompt is ready for input (OSC 133;B). Object is the SurfaceView.
+    static let ghosttyPromptReady = Notification.Name("com.seansmithdesign.ghostties.promptReady")
+
     /// Focus previous/next split. Has a SplitFocusDirection in the userinfo.
     static let ghosttyFocusSplit = Notification.Name("com.seansmithdesign.ghostties.focusSplit")
     static let SplitDirectionKey = ghosttyFocusSplit.rawValue

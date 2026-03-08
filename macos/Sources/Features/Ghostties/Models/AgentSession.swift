@@ -68,31 +68,31 @@ enum SessionStatus: Equatable {
 
 // MARK: - Indicator State
 
-/// View-layer state combining lifecycle status + output activity.
+/// View-layer state combining lifecycle status + output activity + prompt state.
 ///
 /// `SessionStatus` tracks *what happened* to the process. This enum tracks
-/// *what the user should see* — it folds in output recency so the ghost indicator
-/// can distinguish "actively producing output" from "alive but idle."
+/// *what the user should see* — it folds in output recency and shell prompt signals
+/// so the ghost indicator can distinguish six distinct visual states.
 ///
-/// Conforms to `Comparable` so project headers can aggregate by priority:
-/// error > active > waiting > killed > completed > exited.
+/// Conforms to `Comparable` so project headers can aggregate by priority.
+/// States needing user attention (`waiting`, `longRunning`) rank highest below `error`.
 enum SessionIndicatorState: Comparable {
-    case exited
-    case completed
-    case killed
-    case waiting
-    case active
+    case inactive    // exited/completed/killed — collapsed, outline ghost
+    case idle        // at shell prompt, nothing to do
+    case processing  // actively producing output
+    case longRunning // processing for 30+ min continuously
+    case waiting     // needs user input (subprocess blocked)
     case error
 
     /// The priority for aggregation — higher value wins in project headers.
     private var priority: Int {
         switch self {
-        case .exited:    return 0
-        case .completed: return 1
-        case .killed:    return 2
-        case .waiting:   return 3
-        case .active:    return 4
-        case .error:     return 5
+        case .inactive:    return 0
+        case .idle:        return 1
+        case .processing:  return 2
+        case .longRunning: return 3
+        case .waiting:     return 4
+        case .error:       return 5
         }
     }
 

@@ -335,6 +335,10 @@ pub const Action = union(Key) {
     /// otherwise the terminal-set title.
     copy_title_to_clipboard,
 
+    /// The shell prompt is ready for input (OSC 133;B received).
+    /// No payload — the target surface is sufficient context.
+    prompt_ready,
+
     /// Sync with: ghostty_action_tag_e
     pub const Key = enum(c_int) {
         quit,
@@ -401,6 +405,7 @@ pub const Action = union(Key) {
         search_selected,
         readonly,
         copy_title_to_clipboard,
+        prompt_ready,
     };
 
     /// Sync with: ghostty_action_u

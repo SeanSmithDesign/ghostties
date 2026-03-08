@@ -99,6 +99,11 @@ pub const Message = union(enum) {
     /// of the command.
     stop_command: ?u8,
 
+    /// The shell prompt is ready for input (OSC 133;B received).
+    /// Used by the apprt to distinguish idle (at prompt) from waiting
+    /// (subprocess blocked on input).
+    prompt_ready,
+
     /// The scrollbar state changed for the surface.
     scrollbar: terminal.Scrollbar,
 

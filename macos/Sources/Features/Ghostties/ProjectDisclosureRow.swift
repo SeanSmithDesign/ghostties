@@ -198,18 +198,18 @@ struct ProjectDisclosureRow: View {
     private var projectHeaderIndicator: SessionIndicatorState {
         store.sessions(for: project.id)
             .map { coordinator.indicatorState(for: $0.id) }
-            .max() ?? .exited
+            .max() ?? .inactive
     }
 
     /// Map the aggregated indicator to a chevron color (same palette as session rows).
     private var projectHeaderColor: Color {
         switch projectHeaderIndicator {
-        case .active:    return Color(nsColor: .systemGreen)
-        case .waiting:   return WorkspaceLayout.waitingTerracotta
-        case .completed: return Color(.tertiaryLabelColor)
-        case .error:     return Color(nsColor: .systemRed)
-        case .killed:    return Color(nsColor: .systemRed).opacity(0.6)
-        case .exited:    return Color(.tertiaryLabelColor)
+        case .error:       return Color(nsColor: .systemRed)
+        case .waiting:     return WorkspaceLayout.waitingTerracotta
+        case .longRunning: return Color(nsColor: .systemYellow)
+        case .processing:  return Color(nsColor: .systemGreen)
+        case .idle:        return Color(.secondaryLabelColor)
+        case .inactive:    return Color(.tertiaryLabelColor)
         }
     }
 

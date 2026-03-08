@@ -1087,9 +1087,16 @@ pub const StreamHandler = struct {
                 self.surfaceMessageWriter(.{ .stop_command = code });
             },
 
-            // Handled by Terminal, no special handling by us
+            // Shell prompt is ready for input — notify the surface so
+            // the apprt can distinguish idle (at prompt) from waiting
+            // (subprocess blocked on input).
             .end_prompt_start_input,
             .end_prompt_start_input_terminate_eol,
+            => {
+                self.surfaceMessageWriter(.prompt_ready);
+            },
+
+            // Handled by Terminal, no special handling by us
             .fresh_line,
             .fresh_line_new_prompt,
             .new_command,

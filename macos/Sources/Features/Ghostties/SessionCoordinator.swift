@@ -61,14 +61,26 @@ final class SessionCoordinator: ObservableObject {
     /// 1-second timer that triggers view re-evaluation for activity state transitions.
     private var activityTimer: Timer?
 
-    /// How long after the last output before a running session transitions to "waiting."
+    /// How long after the last output before a running session transitions from processing.
     private static let activityThreshold: ContinuousClock.Duration = .seconds(2)
+
+    /// Whether each session is currently at a shell prompt (OSC 133;B received).
+    /// Reset to false on any output activity. Used to distinguish idle vs waiting.
+    private var isAtPrompt: [UUID: Bool] = [:]
+
+    /// When each session entered the processing state (continuous output).
+    /// Cleared when the session returns to a prompt. Used for long-running detection.
+    private var processingStartTimes: [UUID: ContinuousClock.Instant] = [:]
+
+    /// How long a session must be continuously processing before showing as long-running.
+    private static let longRunningThreshold: ContinuousClock.Duration = .seconds(1800)
 
     init(ghostty: Ghostty.App) {
         self.ghostty = ghostty
         observeLifecycle()
         observeProjectRemoval()
         observeCommandFinished()
+        observePromptReady()
         startActivityTimer()
     }
 
@@ -209,6 +221,8 @@ final class SessionCoordinator: ObservableObject {
         statuses.removeValue(forKey: id)
         outputSubscriptions.removeValue(forKey: id)
         lastOutputTimestamps.removeValue(forKey: id)
+        isAtPrompt.removeValue(forKey: id)
+        processingStartTimes.removeValue(forKey: id)
         WorkspaceStore.shared.removeSessionStatus(id: id)
     }
 
@@ -457,7 +471,14 @@ final class SessionCoordinator: ObservableObject {
     private func subscribeToOutput(surface: Ghostty.SurfaceView, sessionId: UUID) {
         outputSubscriptions[sessionId] = surface.lastOutputSubject
             .sink { [weak self] in
-                self?.lastOutputTimestamps[sessionId] = .now
+                guard let self else { return }
+                self.lastOutputTimestamps[sessionId] = .now
+                // Output means we're no longer at the prompt.
+                self.isAtPrompt[sessionId] = false
+                // Start tracking processing duration if not already.
+                if self.processingStartTimes[sessionId] == nil {
+                    self.processingStartTimes[sessionId] = .now
+                }
             }
     }
 
@@ -477,6 +498,23 @@ final class SessionCoordinator: ObservableObject {
               sessionId(for: surface) != nil else { return }
         // Cache the exit code keyed by surface ID. It will be consumed in handleSurfaceClose.
         pendingExitCodes[surface.id] = exitCode
+    }
+
+    /// Observe `GHOSTTY_ACTION_PROMPT_READY` to track shell prompt state.
+    private func observePromptReady() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(promptDidBecomeReady(_:)),
+            name: Ghostty.Notification.ghosttyPromptReady,
+            object: nil
+        )
+    }
+
+    @objc private func promptDidBecomeReady(_ notification: Notification) {
+        guard let surface = notification.object as? Ghostty.SurfaceView,
+              let sessionId = sessionId(for: surface) else { return }
+        isAtPrompt[sessionId] = true
+        processingStartTimes.removeValue(forKey: sessionId)
     }
 
     /// Start a 1-second repeating timer that triggers view re-evaluation.
@@ -499,8 +537,11 @@ final class SessionCoordinator: ObservableObject {
 
     /// Compute the view-layer indicator state for a session.
     ///
-    /// Combines lifecycle status (what happened to the process) with output recency
-    /// (how recently the terminal produced output) into a single visual state.
+    /// Combines lifecycle status, output recency, and shell prompt signals into
+    /// one of six visual states. For running sessions:
+    /// - Recent output → processing (or long-running if 30+ min continuous)
+    /// - No recent output + at shell prompt → idle
+    /// - No recent output + NOT at shell prompt → waiting (needs attention)
     func indicatorState(for sessionId: UUID) -> SessionIndicatorState {
         let status = statuses[sessionId]
             ?? WorkspaceStore.shared.globalStatuses[sessionId]
@@ -511,21 +552,25 @@ final class SessionCoordinator: ObservableObject {
             // Check if the session has produced output recently.
             if let lastOutput = lastOutputTimestamps[sessionId],
                ContinuousClock.now - lastOutput < Self.activityThreshold {
-                return .active
+                // Check long-running: continuously processing for 30+ min.
+                if let start = processingStartTimes[sessionId],
+                   ContinuousClock.now - start > Self.longRunningThreshold {
+                    return .longRunning
+                }
+                return .processing
             }
+            // No recent output — check if we're at a shell prompt.
+            if isAtPrompt[sessionId] == true {
+                return .idle
+            }
+            // Not at prompt — subprocess may need input.
             return .waiting
 
-        case .completed:
-            return .completed
+        case .completed, .exited, .killed:
+            return .inactive
 
         case .error:
             return .error
-
-        case .killed:
-            return .killed
-
-        case .exited:
-            return .exited
         }
     }
 
