@@ -645,9 +645,6 @@ extension Ghostty {
             case GHOSTTY_ACTION_PRESENT_TERMINAL:
                 return presentTerminal(app, target: target)
 
-            case GHOSTTY_ACTION_COMMAND_FINISHED:
-                commandFinished(app, target: target, v: action.action.command_finished)
-
             case GHOSTTY_ACTION_TOGGLE_TAB_OVERVIEW:
                 fallthrough
             case GHOSTTY_ACTION_TOGGLE_WINDOW_DECORATIONS:
@@ -661,8 +658,10 @@ extension Ghostty {
                 return false
             case GHOSTTY_ACTION_COPY_TITLE_TO_CLIPBOARD:
                 return copyTitleToClipboard(app, target: target)
+
             case GHOSTTY_ACTION_PROMPT_READY:
                 promptReady(app, target: target)
+
             default:
                 Ghostty.logger.warning("unknown action action=\(action.tag.rawValue)")
                 return false
@@ -1419,7 +1418,9 @@ extension Ghostty {
                 guard let surface = target.target.surface else { return }
                 guard let surfaceView = self.surfaceView(from: surface) else { return }
 
-                // Post notification for workspace sidebar (fork feature)
+                // Post notification for workspace sidebar (fork feature).
+                // IMPORTANT: Must remain ABOVE the config check below — the sidebar
+                // needs this event unconditionally, even when notifyOnCommandFinish == .never.
                 NotificationCenter.default.post(
                     name: Notification.ghosttyCommandFinished,
                     object: surfaceView,
