@@ -1,5 +1,24 @@
 # Session Notes — Ghostties
 
+## Mar 10, 2026 (Session 5)
+
+### Upstream Merge — Ghostty v1.3.0
+
+Merged upstream Ghostty v1.3.0 (479 commits) into Ghostties via PR #2 on `merge/upstream-v1.3` branch.
+
+- Resolved 5 conflict files (pbxproj, TerminalController, GhosttyPackage, action.zig, GhosttyXcodebuild.zig)
+- Adapted `WorkspaceViewContainer` to upstream's non-generic `TerminalViewContainer` API refactor
+- Merged fork's `commandFinished` notification into upstream's implementation
+- Fixed duplicate switch case (merge artifact), added protective comments
+- Solution doc: `docs/solutions/build-errors/ghostty-upstream-merge-v1-3-0-api-refactor.md`
+- Commits: `89ede99c3` (merge), `87ea44ec7` (review fixes), `d9cea8dd0` (docs)
+
+### Backlog
+
+- **Overlay sidebar hit-testing**: Right-clicks in overlay mode fall through to the terminal (zPosition is rendering-only, not hit-testing). Fix requires subview reordering via `addSubview(_:positioned:relativeTo:)` in `transitionTo()`, but this may cause spurious tracking area events that auto-dismiss or auto-open the overlay. Needs careful investigation.
+- **Overlay trigger sensitivity**: The overlay may be opening too eagerly (anywhere on the window, not just the 10pt left-edge strip). Pre-existing — needs debugging of tracking area lifecycle.
+- **Overlay dismisses on session relaunch**: Relaunching a session in overlay mode causes the overlay to close abruptly (likely from `mouseExited` or `windowDidResignKey` during the view hierarchy update).
+
 ## Feb 27, 2026 (Session 4)
 
 ### Branch Merge + Light Mode Background Colors
