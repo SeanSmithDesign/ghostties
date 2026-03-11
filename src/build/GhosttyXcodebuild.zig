@@ -104,6 +104,8 @@ pub fn init(
             "test",
             "-scheme",
             "Ghostties",
+            "-skip-testing",
+            "GhosttyUITests",
         });
         if (xc_arch) |arch| step.addArgs(&.{ "-arch", arch });
 

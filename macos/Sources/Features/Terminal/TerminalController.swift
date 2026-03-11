@@ -138,7 +138,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // workspace sidebar is present, in which case the user can still
         // interact with exited sessions from the sidebar.
         if to.isEmpty {
-            if !(window?.contentView is WorkspaceViewContainer<TerminalController>) {
+            if !(window?.contentView is WorkspaceViewContainer) {
                 self.window?.close()
             }
         }
@@ -154,7 +154,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // This makes it so that undo is handled properly. However, if a workspace
         // sidebar is present, allow the empty tree — the sidebar is still usable.
         if newTree.isEmpty {
-            if window?.contentView is WorkspaceViewContainer<TerminalController> {
+            if window?.contentView is WorkspaceViewContainer {
                 super.replaceSurfaceTree(newTree, moveFocusTo: newView, moveFocusFrom: oldView, undoAction: undoAction)
                 return
             }
@@ -182,6 +182,16 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // windows "cascade" over each other and don't just launch directly on top
     // of each other.
     private static var lastCascadePoint = NSPoint(x: 0, y: 0)
+
+    private static func applyCascade(to window: NSWindow, hasFixedPos: Bool) {
+        if hasFixedPos { return }
+
+        if all.count > 1 {
+            lastCascadePoint = window.cascadeTopLeft(from: lastCascadePoint)
+        } else {
+            lastCascadePoint = window.cascadeTopLeft(from: NSPoint(x: window.frame.minX, y: window.frame.maxY))
+        }
+    }
 
     // The preferred parent terminal controller.
     static var preferredParent: TerminalController? {
@@ -238,7 +248,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             // Only cascade if we aren't fullscreen.
             if let window = c.window {
                 if !window.styleMask.contains(.fullScreen) {
-                    Self.lastCascadePoint = window.cascadeTopLeft(from: Self.lastCascadePoint)
+                    let hasFixedPos = c.derivedConfig.windowPositionX != nil && c.derivedConfig.windowPositionY != nil
+                    Self.applyCascade(to: window, hasFixedPos: hasFixedPos)
                 }
             }
 
@@ -308,7 +319,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                         window.setFrameTopLeftPoint(position)
                         window.constrainToScreen()
                     } else {
-                        Self.lastCascadePoint = window.cascadeTopLeft(from: Self.lastCascadePoint)
+                        let hasFixedPos = c.derivedConfig.windowPositionX != nil && c.derivedConfig.windowPositionY != nil
+                        Self.applyCascade(to: window, hasFixedPos: hasFixedPos)
                     }
                 }
             }
@@ -396,14 +408,14 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 // If we already have a tab group and we want the new tab to open at the end,
                 // then we use the last window in the tab group as the parent.
                 if let last = parent.tabGroup?.windows.last {
-                    last.addTabbedWindow(window, ordered: .above)
+                    last.addTabbedWindowSafely(window, ordered: .above)
                 } else {
                     fallthrough
                 }
 
             case "current": fallthrough
             default:
-                parent.addTabbedWindow(window, ordered: .above)
+                parent.addTabbedWindowSafely(window, ordered: .above)
             }
         }
 
@@ -414,7 +426,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             // Only cascade if we aren't fullscreen and are alone in the tab group.
             if !window.styleMask.contains(.fullScreen) &&
                 window.tabGroup?.windows.count ?? 1 == 1 {
-                Self.lastCascadePoint = window.cascadeTopLeft(from: Self.lastCascadePoint)
+                let hasFixedPos = controller.derivedConfig.windowPositionX != nil && controller.derivedConfig.windowPositionY != nil
+                Self.applyCascade(to: window, hasFixedPos: hasFixedPos)
             }
 
             controller.showWindow(self)
@@ -570,6 +583,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Call this last in case it uses any of the properties above.
         window.syncAppearance(surfaceConfig)
+        terminalViewContainer?.ghosttyConfigDidChange(ghostty.config, preferredBackgroundColor: window.preferredBackgroundColor)
     }
 
     /// Adjusts the given frame for the configured window position.
@@ -608,7 +622,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // When a workspace sidebar is present, don't close the window or tab
         // for root surface closure — the SessionCoordinator handles lifecycle.
-        if window?.contentView is WorkspaceViewContainer<TerminalController> {
+        if window?.contentView is WorkspaceViewContainer {
             super.closeSurface(node, withConfirmation: withConfirmation)
             return
         }
@@ -855,7 +869,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 controller.showWindow(nil)
                 if let firstWindow = firstController.window,
                    let newWindow = controller.window {
-                    firstWindow.addTabbedWindow(newWindow, ordered: .above)
+                    firstWindow.addTabbedWindowSafely(newWindow, ordered: .above)
                 }
             }
 
@@ -944,9 +958,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 if tabIndex < tabGroup.windows.count {
                     // Find the window that is currently at that index
                     let currentWindow = tabGroup.windows[tabIndex]
-                    currentWindow.addTabbedWindow(window, ordered: .below)
+                    currentWindow.addTabbedWindowSafely(window, ordered: .below)
                 } else {
-                    tabGroup.windows.last?.addTabbedWindow(window, ordered: .above)
+                    tabGroup.windows.last?.addTabbedWindowSafely(window, ordered: .above)
                 }
 
                 // Make it the key window
@@ -1036,7 +1050,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             case .contentIntrinsicSize:
                 // Content intrinsic size requires a short delay so that AppKit
                 // can layout our SwiftUI views.
-                DispatchQueue.main.asyncAfter(deadline: .now() + .microseconds(10_000)) { [weak self, weak window] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(40)) { [weak self, weak window] in
                     guard let self, let window else { return }
                     defaultSize.apply(to: window)
                     if let screen = window.screen ?? NSScreen.main {
@@ -1144,6 +1158,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         super.windowDidBecomeKey(notification)
         self.relabelTabs()
         self.fixTabBar()
+        terminalViewContainer?.updateGlassTintOverlay(isKeyWindow: true)
+    }
+
+    override func windowDidResignKey(_ notification: Notification) {
+        super.windowDidResignKey(notification)
+        terminalViewContainer?.updateGlassTintOverlay(isKeyWindow: false)
     }
 
     override func windowDidMove(_ notification: Notification) {
@@ -1151,6 +1171,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         self.fixTabBar()
 
         // Whenever we move save our last position for the next start.
+        if let window {
+            LastWindowPosition.shared.save(window)
+        }
+    }
+
+    override func windowDidResize(_ notification: Notification) {
+        super.windowDidResize(notification)
+
+        // Whenever we resize save our last position and size for the next start.
         if let window {
             LastWindowPosition.shared.save(window)
         }
@@ -1200,7 +1229,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     }
 
     @IBAction func toggleWorkspaceSidebar(_ sender: Any?) {
-        guard let container = window?.contentView as? WorkspaceViewContainer<TerminalController> else { return }
+        guard let container = window?.contentView as? WorkspaceViewContainer else { return }
         container.toggleSidebar()
     }
 
@@ -1423,7 +1452,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         if #available(macOS 26, *) {
             if window is TitlebarTabsTahoeTerminalWindow {
                 tabGroup.removeWindow(selectedWindow)
-                targetWindow.addTabbedWindow(selectedWindow, ordered: action.amount < 0 ? .below : .above)
+                targetWindow.addTabbedWindowSafely(selectedWindow, ordered: action.amount < 0 ? .below : .above)
                 DispatchQueue.main.async {
                     selectedWindow.makeKey()
                 }
@@ -1438,7 +1467,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Remove and re-add the window in the correct position
         tabGroup.removeWindow(selectedWindow)
-        targetWindow.addTabbedWindow(selectedWindow, ordered: action.amount < 0 ? .below : .above)
+        targetWindow.addTabbedWindowSafely(selectedWindow, ordered: action.amount < 0 ? .below : .above)
 
         // Ensure our window remains selected
         selectedWindow.makeKey()
@@ -1581,7 +1610,7 @@ extension TerminalController {
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }
-            return tabGroup.windows.enumerated().contains { $0.offset > currentIndex }
+            return tabGroup.windows.indices.contains { $0 > currentIndex }
 
         case #selector(returnToDefaultSize):
             guard let window else { return false }

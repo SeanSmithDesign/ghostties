@@ -245,6 +245,12 @@ class AppDelegate: NSObject,
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(terminalWindowHasBell(_:)),
+            name: .terminalWindowBellDidChangeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(ghosttyNewWindow(_:)),
             name: Ghostty.Notification.ghosttyNewWindow,
             object: nil)
@@ -328,9 +334,6 @@ class AppDelegate: NSObject,
         // If we're back manually then clear the hidden state because macOS handles it.
         self.hiddenState = nil
 
-        // Clear the dock badge when the app becomes active
-        self.setDockBadge(nil)
-
         // First launch stuff
         if !applicationHasBecomeActive {
             applicationHasBecomeActive = true
@@ -381,13 +384,7 @@ class AppDelegate: NSObject,
 
             if let why = event.attributeDescriptor(forKeyword: keyword) {
                 switch why.typeCodeValue {
-                case kAEShutDown:
-                    fallthrough
-
-                case kAERestart:
-                    fallthrough
-
-                case kAEReallyLogOut:
+                case kAEShutDown, kAERestart, kAEReallyLogOut:
                     return .terminateNow
 
                 default:
@@ -832,21 +829,31 @@ class AppDelegate: NSObject,
             NSSound.beep()
         }
 
+        if ghostty.config.bellFeatures.contains(.audio) {
+            if let configPath = ghostty.config.bellAudioPath,
+               let sound = NSSound(contentsOfFile: configPath.path, byReference: false) {
+                sound.volume = ghostty.config.bellAudioVolume
+                sound.play()
+            }
+        }
+
         if ghostty.config.bellFeatures.contains(.attention) {
             // Bounce the dock icon if we're not focused.
             NSApp.requestUserAttention(.informationalRequest)
-
-            // Handle setting the dock badge based on permissions
-            ghosttyUpdateBadgeForBell()
         }
     }
 
-    private func ghosttyUpdateBadgeForBell() {
+    @objc private func terminalWindowHasBell(_ notification: Notification) {
+        guard notification.object is BaseTerminalController else { return }
+        syncDockBadge()
+    }
+
+    private func syncDockBadge() {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized:
-                // Already authorized, check badge setting and set if enabled
+                // If we're authorized and allow badges, then set the badge.
                 if settings.badgeSetting == .enabled {
                     DispatchQueue.main.async {
                         self.setDockBadge()
@@ -900,7 +907,12 @@ class AppDelegate: NSObject,
         _ = TerminalController.newTab(ghostty, from: window, withBaseConfig: config)
     }
 
-    private func setDockBadge(_ label: String? = "•") {
+    private func setDockBadge() {
+        let bellCount = NSApp.windows
+            .compactMap { $0.windowController as? BaseTerminalController }
+            .reduce(0) { $0 + ($1.bell ? 1 : 0) }
+        let wantsBadge = ghostty.config.bellFeatures.contains(.attention) && bellCount > 0
+        let label = wantsBadge ? (bellCount > 99 ? "99+" : String(bellCount)) : nil
         NSApp.dockTile.badgeLabel = label
         NSApp.dockTile.display()
     }
@@ -945,6 +957,9 @@ class AppDelegate: NSObject,
         syncMenuShortcuts(config)
         TerminalController.all.forEach { $0.relabelTabs() }
 
+        // Update our badge since config can change what we show.
+        syncDockBadge()
+
         // Config could change window appearance. We wrap this in an async queue because when
         // this is called as part of application launch it can deadlock with an internal
         // AppKit mutex on the appearance.
@@ -986,9 +1001,8 @@ class AppDelegate: NSObject,
         } else {
             GlobalEventTap.shared.disable()
         }
-        Task {
-            await updateAppIcon(from: config)
-        }
+
+        updateAppIcon(from: config)
     }
 
     /// Sync the appearance of our app with the theme specified in the config.
@@ -996,81 +1010,15 @@ class AppDelegate: NSObject,
         NSApplication.shared.appearance = .init(ghosttyConfig: config)
     }
 
-    // Using AppIconActor to ensure this work
-    // happens synchronously in the background
-    @AppIconActor
-    private func updateAppIcon(from config: Ghostty.Config) async {
-        var appIcon: NSImage?
-        var appIconName: String? = config.macosIcon.rawValue
-
-        switch config.macosIcon {
-        case let icon where icon.assetName != nil:
-            appIcon = NSImage(named: icon.assetName!)!
-
-        case .custom:
-            if let userIcon = NSImage(contentsOfFile: config.macosCustomIcon) {
-                appIcon = userIcon
-                appIconName = config.macosCustomIcon
-            } else {
-                appIcon = nil // Revert back to official icon if invalid location
-                appIconName = nil // Discard saved icon name
-            }
-
-        case .customStyle:
-            // Discard saved icon name
-            // if no valid colours were found
-            appIconName = nil
-            guard let ghostColor = config.macosIconGhostColor else { break }
-            guard let screenColors = config.macosIconScreenColor else { break }
-            guard let icon = ColorizedGhosttyIcon(
-                screenColors: screenColors,
-                ghostColor: ghostColor,
-                frame: config.macosIconFrame
-            ).makeImage() else { break }
-            appIcon = icon
-            let colorStrings = ([ghostColor] + screenColors).compactMap(\.hexString)
-            appIconName = (colorStrings + [config.macosIconFrame.rawValue])
-                .joined(separator: "_")
-
-        default:
-            // Discard saved icon name
-            appIconName = nil
+    private func updateAppIcon(from config: Ghostty.Config) {
+        // Since this is called after `DockTilePlugin` has been running,
+        // clean it up here to trigger a correct update of the current config.
+        UserDefaults.standard.removeObject(forKey: "CustomGhosttyIcon")
+        DispatchQueue.global().async {
+            UserDefaults.standard.appIcon = AppIcon(config: config)
+            DistributedNotificationCenter.default()
+                .postNotificationName(.ghosttyIconDidChange, object: nil, userInfo: nil, deliverImmediately: true)
         }
-
-        // Only change the icon if it has actually changed from the current one,
-        // or if the app build has changed (e.g. after an update that reset the icon)
-        let cachedIconName = UserDefaults.standard.string(forKey: "CustomGhosttyIcon")
-        let cachedIconBuild = UserDefaults.standard.string(forKey: "CustomGhosttyIconBuild")
-        let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
-        let buildChanged = cachedIconBuild != currentBuild
-
-        guard cachedIconName != appIconName || buildChanged else {
-#if DEBUG
-            if appIcon == nil {
-                await MainActor.run {
-                    // Changing the app bundle's icon will corrupt code signing.
-                    // We only use the default blueprint icon for the dock,
-                    // so developers don't need to clean and re-build every time.
-                    NSApplication.shared.applicationIconImage = NSImage(named: "BlueprintImage")
-                }
-            }
-#endif
-            return
-        }
-        // make it immutable, so Swift 6 won't complain
-        let newIcon = appIcon
-
-        let appPath = Bundle.main.bundlePath
-        guard NSWorkspace.shared.setIcon(newIcon, forFile: appPath, options: []) else { return }
-        NSWorkspace.shared.noteFileSystemChanged(appPath)
-
-        await MainActor.run {
-            self.appIcon = newIcon
-            NSApplication.shared.applicationIconImage = newIcon
-        }
-
-        UserDefaults.standard.set(appIconName, forKey: "CustomGhosttyIcon")
-        UserDefaults.standard.set(currentBuild, forKey: "CustomGhosttyIconBuild")
     }
 
     // MARK: - Restorable State
@@ -1134,10 +1082,8 @@ class AppDelegate: NSObject,
 
     func findSurface(forUUID uuid: UUID) -> Ghostty.SurfaceView? {
         for c in TerminalController.all {
-            for view in c.surfaceTree {
-                if view.id == uuid {
-                    return view
-                }
+            for view in c.surfaceTree where view.id == uuid {
+                return view
             }
         }
 
@@ -1408,9 +1354,4 @@ private enum QuickTerminalState {
     case pendingRestore(QuickTerminalRestorableState)
     /// Controller has been initialized.
     case initialized(QuickTerminalController)
-}
-
-@globalActor
-private actor AppIconActor: GlobalActor {
-    static let shared = AppIconActor()
 }
