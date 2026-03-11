@@ -18,7 +18,7 @@ import SwiftUI
 /// - **pinned**: Sidebar pushes terminal right (floating card with shadow/insets).
 /// - **closed**: Sidebar hidden, terminal fills window flush, traffic lights hidden.
 /// - **overlay**: Sidebar floats on top of full-width terminal (hover-to-reveal).
-class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
+class WorkspaceViewContainer: NSView {
     private let backgroundEffectView: NSVisualEffectView = {
         let view = NSVisualEffectView()
         view.material = .sidebar
@@ -28,7 +28,7 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
         return view
     }()
     private let sidebarHostingView: NSView
-    private let terminalContainer: TerminalViewContainer<ViewModel>
+    private let terminalContainer: TerminalViewContainer
     private let coordinator: SessionCoordinator
     private let ghostty: Ghostty.App
 
@@ -111,13 +111,11 @@ class WorkspaceViewContainer<ViewModel: TerminalViewModel>: NSView {
     }
 
 
-    init(ghostty: Ghostty.App, viewModel: ViewModel, delegate: (any TerminalViewDelegate)? = nil) {
+    init<ViewModel: TerminalViewModel>(ghostty: Ghostty.App, viewModel: ViewModel, delegate: (any TerminalViewDelegate)? = nil) {
         self.ghostty = ghostty
-        self.terminalContainer = TerminalViewContainer(
-            ghostty: ghostty,
-            viewModel: viewModel,
-            delegate: delegate
-        )
+        self.terminalContainer = TerminalViewContainer {
+            TerminalView(ghostty: ghostty, viewModel: viewModel, delegate: delegate)
+        }
 
         self.coordinator = SessionCoordinator(ghostty: ghostty)
 

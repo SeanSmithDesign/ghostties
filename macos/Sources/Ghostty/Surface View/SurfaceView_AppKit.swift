@@ -122,6 +122,12 @@ extension Ghostty {
         // Whether the pointer should be visible or not
         @Published private(set) var pointerStyle: CursorStyle = .horizontalText
 
+        // Whether the mouse is currently over this surface
+        @Published private(set) var mouseOverSurface: Bool = false
+
+        // Whether the cursor is currently visible (not hidden by typing, etc.)
+        @Published private(set) var cursorVisible: Bool = true
+
         /// The configuration derived from the Ghostty config so we don't need to rely on references.
         @Published private(set) var derivedConfig: DerivedConfig
 
@@ -220,6 +226,10 @@ extension Ghostty {
 
         // This is set to non-null during keyDown to accumulate insertText contents
         private var keyTextAccumulator: [String]?
+
+        // True when we've consumed a left mouse-down only to move focus and
+        // should suppress the matching mouse-up from being reported.
+        private var suppressNextLeftMouseUp: Bool = false
 
         // A small delay that is introduced before a title change to avoid flickers
         private var titleChangeTimer: Timer?
@@ -539,6 +549,7 @@ extension Ghostty {
         }
 
         func setCursorVisibility(_ visible: Bool) {
+            cursorVisible = visible
             // Technically this action could be called anytime we want to
             // change the mouse visibility but at the time of writing this
             // mouse-hide-while-typing is the only use case so this is the
@@ -647,12 +658,18 @@ extension Ghostty {
             let location = convert(event.locationInWindow, from: nil)
             guard hitTest(location) == self else { return event }
 
-            // We only want to grab focus if either our app or window was
-            // not focused.
-            guard !NSApp.isActive || !window.isKeyWindow else { return event }
+            // If we're already the first responder then no focus transfer is
+            // happening, so the click should continue as normal.
+            guard window.firstResponder !== self else { return event }
 
-            // If we're already focused we do nothing
-            guard !focused else { return event }
+            // If our window/app is already focused, then this click is only
+            // being used to transfer split focus. Consume it so it does not
+            // get forwarded to the terminal as a mouse click.
+            if NSApp.isActive && window.isKeyWindow {
+                window.makeFirstResponder(self)
+                suppressNextLeftMouseUp = true
+                return nil
+            }
 
             // Make ourselves the first responder
             window.makeFirstResponder(self)
@@ -681,7 +698,7 @@ extension Ghostty {
             guard let healthAny = notification.userInfo?["health"] else { return }
             guard let health = healthAny as? ghostty_action_renderer_health_e else { return }
             DispatchQueue.main.async { [weak self] in
-                self?.healthy = health == GHOSTTY_RENDERER_HEALTH_OK
+                self?.healthy = health == GHOSTTY_RENDERER_HEALTH_HEALTHY
             }
         }
 
@@ -857,6 +874,13 @@ extension Ghostty {
         }
 
         override func mouseUp(with event: NSEvent) {
+            // If this mouse-up corresponds to a focus-only click transfer,
+            // suppress it so we don't emit a release without a press.
+            if suppressNextLeftMouseUp {
+                suppressNextLeftMouseUp = false
+                return
+            }
+
             // Always reset our pressure when the mouse goes up
             prevPressureStage = 0
 
@@ -920,6 +944,7 @@ extension Ghostty {
         }
 
         override func mouseEntered(with event: NSEvent) {
+            mouseOverSurface = true
             super.mouseEntered(with: event)
 
             guard let surfaceModel else { return }
@@ -938,6 +963,7 @@ extension Ghostty {
         }
 
         override func mouseExited(with event: NSEvent) {
+            mouseOverSurface = false
             guard let surfaceModel else { return }
 
             // If the mouse is being dragged then we don't have to emit
@@ -1633,14 +1659,17 @@ extension Ghostty {
         }
 
         /// Show a user notification and associate it with this surface
-        func showUserNotification(title: String, body: String) {
+        func showUserNotification(title: String, body: String, requireFocus: Bool = true) {
             let content = UNMutableNotificationContent()
             content.title = title
             content.subtitle = self.title
             content.body = body
             content.sound = UNNotificationSound.default
             content.categoryIdentifier = Ghostty.userNotificationCategory
-            content.userInfo = ["surface": self.id.uuidString]
+            content.userInfo = [
+                "surface": self.id.uuidString,
+                "requireFocus": requireFocus,
+            ]
 
             let uuid = UUID().uuidString
             let request = UNNotificationRequest(
