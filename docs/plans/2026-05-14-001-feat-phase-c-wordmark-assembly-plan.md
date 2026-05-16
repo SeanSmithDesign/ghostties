@@ -29,7 +29,7 @@ See origin doc for full problem frame, flows (F1–F3), and acceptance examples 
 - R3. First PTY output dismounts the entire layer (250 ms fade, existing Phase A behavior).
 - R5. Cycle: assembly (~30–45 s) → hold (~3–5 s) → erosion (mirrors assembly). Full loop ~65–95 s.
 - R6. Cycle phase transitions are continuous — no flash or beat.
-- R7. Placed pixels hold at brand opacity (target 0.60–0.80 of `.primary`). Ambient drifters and rubble at ~22% secondary tint. Brightening is per-pixel at deposit time.
+- R7. Placed pixels and in-transit (carried) pixels hold at brand opacity (target 0.60–0.80 of `.primary`). Ambient drifters and rubble at ~22% secondary tint. Brightening is per-pixel at deposit time. (R12 specifies brand opacity during ferry — this requirement is consistent.)
 - R8. Erosion is the temporal mirror of assembly.
 - R9. Ghost states: `drifting`, `approaching`, `ferrying`. Default: `drifting`.
 - R10. Carrier assignment: drifting ghost may transition to approaching when (a) phase is assembling or eroding AND (b) an unassigned target pixel exists AND (c) per-ghost probability gate passes.
@@ -101,7 +101,7 @@ See origin doc for full problem frame, flows (F1–F3), and acceptance examples 
 
 - **Two-phase carrier motion — `approaching` → `ferrying`**: Carrier first moves toward the rubble pixel's current position (`approaching`); within a pickup radius (~12 pt) it transitions to `ferrying(pixelIndex:, targetPosition:)` and moves toward the target slot (assembly) or scatter position (erosion). Pixel renders at carrier position during both sub-phases. (Rationale: produces the "move toward, pick up, carry" visual behavior specified in F1; a single `carrying` state with an internal flag is equivalent but less readable.)
 
-- **Carrier speed via seek, not constant velocity**: Each frame, the carrier velocity vector is set directly toward the target at `min(distance / dt, maxSpeed)` where `maxSpeed = 1.3 px/frame × 60`. When the carrier is far away it moves at max speed; when close it decelerates naturally. (Rationale: prevents overshooting the target on the final frame; smooth deceleration is more legible than a hard stop.)
+- **Carrier speed via seek, not constant velocity**: Each frame, the carrier velocity vector is set directly toward the target at `min(distance / (dt * 60), maxSpeed)` where `maxSpeed = 1.3 px/frame` (78 pt/s at 60 fps). When the carrier is far away it moves at max speed; when close it decelerates naturally. (Rationale: prevents overshooting the target on the final frame; smooth deceleration is more legible than a hard stop.)
 
 - **Single `Path.fill()` call per opacity tier per frame**: All rubble pixels share one path (filled at ~22% `.secondary`); all placed pixels share another (filled at brand opacity); all in-transit pixels share a third. Three `path.fill()` calls total, regardless of pixel count. (Rationale: matches `GhostCharacter.drawPath` precedent; avoids a `ForEach` of pixel views which would create O(n) SwiftUI nodes.)
 
@@ -427,7 +427,7 @@ TimelineView tick
     2. If `wordmarkEnabled && wordmarkWidth != nil`:
        - If `wordmarkWorld == nil` (first activation or pane resize): `wordmarkWorld = WordmarkWorld.initial(...)`. Re-initialize rubble scatter.
        - Call `(newWordmarkWorld, updatedBodies) = wordmarkWorld!.stepped(bodies: world.bodies, dt: dt, bounds: bounds)`.
-       - Set `worldmarkWorld = newWordmarkWorld`, `world.bodies = updatedBodies`.
+       - Set `wordmarkWorld = newWordmarkWorld`, `world.bodies = updatedBodies`.
        - Then call `world = world.stepped(by: dt, bounds: bounds)` (Phase A, carrier-collision-exempt).
     3. If `wordmarkEnabled && wordmarkWidth == nil`: `wordmarkWorld = nil` (pane too small).
     4. If `!wordmarkEnabled`: `wordmarkWorld = nil`.
