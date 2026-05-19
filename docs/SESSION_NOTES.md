@@ -2541,3 +2541,33 @@ Pickup session: full test suite was already green on `main` (`a41d842eb`). Tagge
 
 - 5/5 delegations verified: `aa9dcf8c5`, `94535e847`, `655f83987`, `637fc6032` all committed + pushed ✓
 - beta.15 tag pushed, CI completed successfully (21 min) ✓
+
+---
+
+## Session 13 — 2026-05-18/19
+
+**Focus:** Tag + ship beta.16, website changelog, Sparkle debugging
+
+### Shipped
+
+- **`v0.1.0-beta.16` tagged and live** (`adb0fee6d`) — six-zone task sidebar, Linear sync preset, `set_task_fields` MCP tool, sessions tab, template picker, wordmark animation (off by default), `gt smoke`, SSD-241 + SSD-263 update story fixes
+- **GitHub release body filled** via `gh release edit` — added to release conventions going forward
+- **`ghostties.org/changelog`** — new page with full release history, newest first (`7989451ba`)
+- **Download page updated** — beta.15 note now says "download manually," removed config instructions (`5b21ba418`)
+
+### Discovered
+
+- **Sparkle "Check for Updates" broken (P0 / beta.17)** — clicking it produces zero log output; the XPC updater process is not being invoked at all. Not an overlay issue — the check itself doesn't fire. Confirmed via `log stream` in both Ghostty and Ghostties terminals on beta.16.
+- **Appcast CI conflict pattern** — pre-writing the appcast enclosure in the prep commit causes a diverged branch when CI also auto-commits the corrected appcast. Let CI own the appcast file; only write description in the prep commit.
+
+### Pending smokes (carry to beta.17)
+
+- Phase C wordmark animation (off by default, needs `defaults write`)
+- Linear sync preset in template picker
+
+### Commits this session
+
+- `adb0fee6d` — chore(release): prep v0.1.0-beta.16
+- `29cb53256` — chore(appcast): update from v0.1.0-beta.16 [CI]
+- `7989451ba` — feat(web): changelog page + update beta.15 install note
+- `5b21ba418` — fix(web): honest auto-update copy — say download manually
