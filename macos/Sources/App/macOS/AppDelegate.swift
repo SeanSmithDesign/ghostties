@@ -768,6 +768,7 @@ class AppDelegate: NSObject,
                 keyEquivalent: ""
             )
             item.tag = index
+            item.target = self
             simulateSubmenu.addItem(item)
         }
 
