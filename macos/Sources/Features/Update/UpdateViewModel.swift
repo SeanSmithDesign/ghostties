@@ -217,6 +217,13 @@ enum UpdateState: Equatable {
 
     func cancel() {
         switch self {
+        case .permissionRequest(let request):
+            // Answer the wedged permission request with "yes, enable automatic checks"
+            // so Sparkle clears _showingPermissionRequest and allows the next
+            // checkForUpdates() call to proceed. Consistent with our silent-on default
+            // (SUEnableAutomaticChecks=true in Info.plist prevents this path on fresh
+            // installs, but older/wedged installs need an escape hatch here).
+            request.reply(SUUpdatePermissionResponse(automaticUpdateChecks: true, sendSystemProfile: false))
         case .checking(let checking):
             checking.cancel()
         case .updateAvailable(let available):

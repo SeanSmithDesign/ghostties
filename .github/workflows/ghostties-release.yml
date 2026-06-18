@@ -182,8 +182,11 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GHOSTTIES_BUILD" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $GHOSTTIES_VERSION" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey p4A5Tc5lUgQGbOEnOGesE7YA+EPePQxKiLrKdRfvdMg=" "$PLIST"
-          # Remove the auto-checks key so Sparkle respects user preferences at runtime
-          /usr/libexec/PlistBuddy -c "Delete :SUEnableAutomaticChecks" "$PLIST" || true
+          # Keep SUEnableAutomaticChecks=true so Sparkle skips the permission-request
+          # prompt path entirely and goes straight to background checking. Deleting
+          # this key (old behavior) caused Sparkle to wedge in _showingPermissionRequest
+          # forever, silently swallowing every "Check for Updates" click.
+          /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks true" "$PLIST"
 
       - name: Codesign app bundle
         env:

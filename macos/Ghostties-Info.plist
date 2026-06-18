@@ -108,6 +108,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUPublicEDKey</key>
 	<string>placeholder</string>
 	<key>UTExportedTypeDeclarations</key>
