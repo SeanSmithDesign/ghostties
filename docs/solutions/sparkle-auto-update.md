@@ -287,9 +287,9 @@ xcrun stapler staple "Ghostties.dmg"
 xcrun stapler staple "macos/build/Release/Ghostties.app"
 ```
 
-> Historical note: beta.17's DMG was notarized but **not** stapled (Gatekeeper
-> validated online — fine for beta). The `stapler staple` step was the deferred
-> hardening item and is now in the pipeline. For any new app, staple from day one.
+> This step has been in the pipeline since the first release CI commit (`a8b390749`).
+> All shipped betas including beta.17 and beta.18 are fully stapled. For any new app,
+> staple from day one alongside notarization.
 
 ---
 
@@ -349,7 +349,8 @@ Read this before deciding to build anything custom.
    no update offered.
 
 5. **Notarize AND staple.** Notarize the DMG and `.app`, then `stapler staple` both so
-   Gatekeeper validates offline. Don't ship "notarized but not stapled" past beta.
+   Gatekeeper validates offline. Stapling lets Gatekeeper validate without a network
+   call — do this from day one alongside notarization.
 
 6. **Keep the EdDSA signing key in CI secrets and let CI own the appcast.** Generate
    the signature, regenerate the XML, and commit it from the workflow. Hand-editing
