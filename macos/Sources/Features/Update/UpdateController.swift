@@ -1,6 +1,7 @@
 import Sparkle
 import Cocoa
 import Combine
+import os
 
 /// Standard controller for managing Sparkle updates in Ghostty.
 ///
@@ -92,6 +93,9 @@ class UpdateController {
     ///
     /// This is typically connected to a menu item action.
     @objc func checkForUpdates() {
+        Logger(subsystem: "com.seansmithdesign.ghostties", category: "update")
+            .log("checkForUpdates tapped — state=\(String(describing: self.viewModel.state), privacy: .public) canCheck=\(self.updater.canCheckForUpdates, privacy: .public)")
+
         // If we're already idle, then just check for updates immediately.
         if viewModel.state == .idle {
             updater.checkForUpdates()

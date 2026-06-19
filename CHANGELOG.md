@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ---
 
+## [0.1.0-beta.17] — 2026-06-19
+
+Auto-updates work now, and the workspace sidebar no longer freezes the app.
+
+### Fixed
+
+- **Auto-updates now work.** "Check for Updates" was silently doing nothing in beta.16 — a permission-request wedge stalled Sparkle, and the in-app update notification never rendered in the workspace window. Ghostties now checks for updates in the background and shows a notification pill when a new version is ready. *One catch: because the updater itself was broken in beta.16 and earlier, you'll need to install this build manually — but updates after this one will arrive on their own.*
+- **Sidebar no longer freezes the app.** Opening the project sidebar could peg the CPU and beachball the window. Fixed.
+
+---
+
 ## [0.1.0-beta.16] — 2026-05-18
 
 The tasks sidebar is now fully wired up, with six status zones, Linear preset support, and a complete `gt` CLI.
@@ -98,6 +109,8 @@ First distributable build. Ghostties can now be installed and kept up to date au
 
 ---
 
+[0.1.0-beta.17]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.17
+[0.1.0-beta.16]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.16
 [0.1.0-beta.15]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.15
 [0.1.0-beta.14]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.14
 [0.1.0-beta.13]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.13
