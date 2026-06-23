@@ -12,10 +12,16 @@ struct WorkspacePersistence {
         category: "WorkspacePersistence"
     )
 
-    /// The directory name for workspace data. `Ghostties Dev` for debug/dev
-    /// builds (bundle ID ends in `.dev` or `.debug`), `Ghostties` otherwise.
+    /// The directory name for workspace data.
+    /// - `.demo` bundle (ends in `.demo`): "Ghostties Demo" — isolated capture
+    ///   instance for marketing screen recordings; never touches release state.
+    /// - `.dev`/`.debug` bundle: "Ghostties Dev" — developer/debug builds.
+    /// - All other bundles (release): "Ghostties".
     private static var directoryName: String {
         let bundleId = Bundle.main.bundleIdentifier ?? ""
+        if bundleId.hasSuffix(".demo") {
+            return "Ghostties Demo"
+        }
         if bundleId.hasSuffix(".dev") || bundleId.hasSuffix(".debug") {
             return "Ghostties Dev"
         }
