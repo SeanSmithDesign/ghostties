@@ -16,31 +16,19 @@ import SwiftUI
 /// gate the wrapper itself without moving the `.equatable()` boundary up to the
 /// call site), but that's just a cheap struct construction, so reading it live
 /// here costs nothing.
-///
-/// Only whether the globally active session belongs to *this* project is
-/// passed down (`isActiveSessionInThisRow`), not the raw `activeSessionId`
-/// scalar. `activeSessionId` is identical input to every row, so comparing it
-/// directly in `Equatable` forced every row to compare unequal whenever focus
-/// changed anywhere — defeating `.equatable()` for the common case of
-/// switching focus between sessions. Deriving a per-row bool here means only
-/// the row(s) whose own membership actually flipped re-render.
 struct ProjectDisclosureRow: View {
     let project: Project
     @Binding var isExpanded: Bool
     @Binding var selectedProjectId: UUID?
 
     @EnvironmentObject private var coordinator: SessionCoordinator
-    @EnvironmentObject private var store: WorkspaceStore
 
     var body: some View {
-        let isActiveSessionInThisRow = coordinator.activeSessionId.map { activeId in
-            store.sessions(for: project.id).contains { $0.id == activeId }
-        } ?? false
         ProjectDisclosureRowContent(
             project: project,
             isExpanded: $isExpanded,
             selectedProjectId: $selectedProjectId,
-            isActiveSessionInThisRow: isActiveSessionInThisRow
+            activeSessionId: coordinator.activeSessionId
         )
         .equatable()
     }
@@ -52,7 +40,7 @@ private struct ProjectDisclosureRowContent: View, Equatable {
     let project: Project
     @Binding var isExpanded: Bool
     @Binding var selectedProjectId: UUID?
-    let isActiveSessionInThisRow: Bool
+    let activeSessionId: UUID?
 
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var coordinator: SessionCoordinator
@@ -83,12 +71,12 @@ private struct ProjectDisclosureRowContent: View, Equatable {
         project: Project,
         isExpanded: Binding<Bool>,
         selectedProjectId: Binding<UUID?>,
-        isActiveSessionInThisRow: Bool
+        activeSessionId: UUID?
     ) {
         self.project = project
         self._isExpanded = isExpanded
         self._selectedProjectId = selectedProjectId
-        self.isActiveSessionInThisRow = isActiveSessionInThisRow
+        self.activeSessionId = activeSessionId
 
         let flatSessions = WorkspaceStore.shared.sessionGroups(forProject: project.id).flatMap { $0.1 }
         self.sessionSignature = flatSessions
@@ -98,14 +86,25 @@ private struct ProjectDisclosureRowContent: View, Equatable {
     }
 
     /// This project's own inputs — session set/order/name/`lastActiveAt`,
-    /// indicator states, expansion, selection, and whether the globally active
-    /// session belongs to *this* row (so switching focus into or off of this
-    /// row's sessions still refreshes it even when nothing else here changed).
+    /// indicator states, expansion, selection, and the globally active
+    /// session (so switching focus off *this* row's highlighted session still
+    /// refreshes it even when nothing else here changed).
+    ///
+    /// Intentionally compares the raw `activeSessionId`, not a bool narrowed
+    /// to "does the active session belong to this row." A narrowed bool stays
+    /// `true` across a focus switch between two sessions in the *same*
+    /// project when that switch lands inside `WorkspaceStore.recordActivity`'s
+    /// 5-second granularity guard (no `sessions`/`projects` mutation, so
+    /// `sessionSignature`/`indicatorSignature` don't change either) — Equatable
+    /// then reports "unchanged" and the active-session highlight silently goes
+    /// stale. Comparing the raw id means the row correctly re-renders whenever
+    /// the active session changes anywhere in the app, not only when it moves
+    /// into or out of this specific row.
     static func == (lhs: ProjectDisclosureRowContent, rhs: ProjectDisclosureRowContent) -> Bool {
         lhs.project == rhs.project
             && lhs.isExpanded == rhs.isExpanded
             && lhs.selectedProjectId == rhs.selectedProjectId
-            && lhs.isActiveSessionInThisRow == rhs.isActiveSessionInThisRow
+            && lhs.activeSessionId == rhs.activeSessionId
             && lhs.sessionSignature == rhs.sessionSignature
             && lhs.indicatorSignature == rhs.indicatorSignature
     }
