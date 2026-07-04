@@ -1038,6 +1038,25 @@ struct WorkspaceStoreSectionsTests {
     }
 
     @MainActor
+    @Test func recordActivityWithDivergentNeedsUpdateOnlyAdvancesStaleTimestamp() {
+        // Two sessions share a project. The project's lastActiveAt was just
+        // bumped (e.g. by a sibling session) within the last 5s, but this
+        // session's own lastActiveAt is stale (>5s old). The 5s guard is
+        // evaluated per-timestamp, so the session should advance while the
+        // project — already fresh — should not move again.
+        let t0 = Date(timeIntervalSince1970: 5_000)
+        let p = makeProject(name: "Proj", lastActiveAt: t0)
+        let s = makeSession(projectId: p.id, lastActiveAt: t0.addingTimeInterval(-30))
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s])
+
+        let t1 = t0.addingTimeInterval(2)  // within 5s of project's lastActiveAt
+        store.recordActivity(sessionId: s.id, projectId: p.id, now: { t1 })
+
+        #expect(store.sessions.first?.lastActiveAt == t1)
+        #expect(store.projects.first?.lastActiveAt == t0)
+    }
+
+    @MainActor
     @Test func recordActivityWritesThroughFreezeButLayoutStaysSnapshotted() {
         // Freeze guarantees layout stability while the user is in the sidebar.
         // Activity write-through must still flow into the underlying state so

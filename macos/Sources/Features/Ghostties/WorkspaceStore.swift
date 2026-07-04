@@ -219,7 +219,9 @@ final class WorkspaceStore: ObservableObject {
     /// least 5s past the currently stored value (also enforces the old
     /// monotonic guard — it never rolls backward). If neither the session nor
     /// project timestamp needs to move, the function returns without touching
-    /// any `@Published` property or calling `persist()`.
+    /// any `@Published` property or calling `persist()`. The `activeSinceTimestamps`
+    /// grace-tracker refresh below rides this same guard — harmless given its
+    /// much wider 120s window.
     ///
     /// Silent no-op when the session or project id is stale (e.g. a Combine
     /// sink fires after the session was removed) — no crash, no write.

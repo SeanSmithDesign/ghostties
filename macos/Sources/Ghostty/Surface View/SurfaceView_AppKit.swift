@@ -30,6 +30,11 @@ extension Ghostty {
         // needs an activity proxy, not every event.
         private var lastOutputSubjectSentAt: ContinuousClock.Instant?
 
+        // Ghostties: trailing-edge flush for the above throttle. If a send is
+        // suppressed because we're within the 250ms window, this schedules a
+        // one-shot fire so the final state of a burst is never dropped.
+        private var lastOutputSubjectFlushTimer: Timer?
+
         // The progress report (if any)
         override var progressReport: Action.ProgressReport? {
             didSet {
@@ -591,8 +596,27 @@ extension Ghostty {
             // activity proxy so dropping intermediate fires is safe.
             let now = ContinuousClock.now
             if lastOutputSubjectSentAt == nil || now - lastOutputSubjectSentAt! >= .milliseconds(250) {
+                lastOutputSubjectFlushTimer?.invalidate()
+                lastOutputSubjectFlushTimer = nil
                 lastOutputSubjectSentAt = now
                 lastOutputSubject.send()
+            } else if lastOutputSubjectFlushTimer == nil {
+                // Trailing-edge flush: this event was suppressed by the
+                // throttle, so schedule a one-shot fire for the remainder of
+                // the window to guarantee the final state of this burst is
+                // still delivered. If a flush is already pending, it will
+                // fire and pick up the latest state (the sink reads
+                // surface?.title live), so we don't need to reschedule.
+                let remaining = max(0, (Duration.milliseconds(250) - (now - lastOutputSubjectSentAt!)).timeInterval)
+                lastOutputSubjectFlushTimer = Timer.scheduledTimer(
+                    withTimeInterval: remaining,
+                    repeats: false
+                ) { [weak self] _ in
+                    guard let self else { return }
+                    self.lastOutputSubjectSentAt = ContinuousClock.now
+                    self.lastOutputSubjectFlushTimer = nil
+                    self.lastOutputSubject.send()
+                }
             }
 
             // This fixes an issue where very quick changes to the title could
