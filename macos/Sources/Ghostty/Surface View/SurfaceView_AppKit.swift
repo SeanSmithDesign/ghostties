@@ -25,6 +25,11 @@ extension Ghostty {
         // objectWillChange (which would re-render the terminal view itself).
         let lastOutputSubject = PassthroughSubject<Void, Never>()
 
+        // Ghostties: throttles lastOutputSubject sends. Title changes fire many
+        // times per second while a shell streams output; the subscriber only
+        // needs an activity proxy, not every event.
+        private var lastOutputSubjectSentAt: ContinuousClock.Instant?
+
         // The progress report (if any)
         override var progressReport: Action.ProgressReport? {
             didSet {
@@ -582,7 +587,13 @@ extension Ghostty {
         func setTitle(_ title: String) {
             // Signal output activity — title changes are a reliable proxy for
             // terminal activity (shell integration prompts, PWD changes, etc.).
-            lastOutputSubject.send()
+            // Throttled to at most once per 250ms per surface; this is only an
+            // activity proxy so dropping intermediate fires is safe.
+            let now = ContinuousClock.now
+            if lastOutputSubjectSentAt == nil || now - lastOutputSubjectSentAt! >= .milliseconds(250) {
+                lastOutputSubjectSentAt = now
+                lastOutputSubject.send()
+            }
 
             // This fixes an issue where very quick changes to the title could
             // cause an unpleasant flickering. We set a timer so that we can

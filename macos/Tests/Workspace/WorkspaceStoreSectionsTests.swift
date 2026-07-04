@@ -1001,6 +1001,43 @@ struct WorkspaceStoreSectionsTests {
     }
 
     @MainActor
+    @Test func recordActivityWithinFiveSecondsDoesNotAdvanceTimestamp() {
+        // Second call within the 5s granularity window must not move
+        // lastActiveAt — the guard exists so a throttled activity fire
+        // doesn't still write a `@Published` property (and persist) every
+        // time it's called.
+        let p = makeProject(name: "Proj")
+        let s = makeSession(projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s])
+
+        let t0 = Date(timeIntervalSince1970: 5_000)
+        store.recordActivity(sessionId: s.id, projectId: p.id, now: { t0 })
+        #expect(store.projects.first?.lastActiveAt == t0)
+
+        let t1 = t0.addingTimeInterval(3)  // within the 5s window
+        store.recordActivity(sessionId: s.id, projectId: p.id, now: { t1 })
+
+        #expect(store.projects.first?.lastActiveAt == t0)
+        #expect(store.sessions.first?.lastActiveAt == t0)
+    }
+
+    @MainActor
+    @Test func recordActivityAfterFiveSecondsAdvancesTimestamp() {
+        let p = makeProject(name: "Proj")
+        let s = makeSession(projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s])
+
+        let t0 = Date(timeIntervalSince1970: 5_000)
+        store.recordActivity(sessionId: s.id, projectId: p.id, now: { t0 })
+
+        let t1 = t0.addingTimeInterval(5)  // exactly at the 5s boundary
+        store.recordActivity(sessionId: s.id, projectId: p.id, now: { t1 })
+
+        #expect(store.projects.first?.lastActiveAt == t1)
+        #expect(store.sessions.first?.lastActiveAt == t1)
+    }
+
+    @MainActor
     @Test func recordActivityWritesThroughFreezeButLayoutStaysSnapshotted() {
         // Freeze guarantees layout stability while the user is in the sidebar.
         // Activity write-through must still flow into the underlying state so
