@@ -12,8 +12,24 @@ final class WorkspaceStore: ObservableObject {
     /// Shared instance used by all windows. Created once on first access.
     static let shared = WorkspaceStore()
 
-    @Published private(set) var projects: [Project] = []
-    @Published private(set) var sessions: [AgentSession] = []
+    /// `sectionedProjects`/`sessionGroups(forProject:)` below are memoized —
+    /// invalidating on every mutation via `didSet` (rather than scattering
+    /// invalidation calls across each mutating method) means a future mutation
+    /// site can never forget to bust the cache. Both computations are also
+    /// functions of wall-clock time (grace period, 24h recency window), so the
+    /// cache must drop on every mutation that could have changed the *inputs*
+    /// to that computation, even when the mutating method itself doesn't
+    /// otherwise touch the sidebar — matching the previous always-recompute
+    /// behavior exactly.
+    @Published private(set) var projects: [Project] = [] {
+        didSet { invalidateSectionedProjectsCache() }
+    }
+    @Published private(set) var sessions: [AgentSession] = [] {
+        didSet {
+            sessionGroupsCache.removeAll()
+            invalidateSectionedProjectsCache()
+        }
+    }
     @Published private(set) var templates: [AgentTemplate] = []
 
     /// Global session status — shared across all windows so that a session
@@ -24,7 +40,12 @@ final class WorkspaceStore: ObservableObject {
     /// Global indicator states — the view-layer state for each running session.
     /// Updated by SessionCoordinator's activity timer; consumed by MenuBarController
     /// to render the aggregate status dot in the menu bar.
-    @Published private(set) var globalIndicatorStates: [UUID: SessionIndicatorState] = [:]
+    @Published private(set) var globalIndicatorStates: [UUID: SessionIndicatorState] = [:] {
+        didSet {
+            sessionGroupsCache.removeAll()
+            invalidateSectionedProjectsCache()
+        }
+    }
 
     /// Current sidebar mode. Persisted across launches.
     /// `.overlay` is transient — always saved as `.closed`.
@@ -137,25 +158,46 @@ final class WorkspaceStore: ObservableObject {
     /// `.needsAttention`). Drives the grace-period tail of `.activeNow`.
     ///
     /// Ephemeral — not persisted. Populated by `updateProjectActivityFromIndicatorStates()`.
-    private var activeSinceTimestamps: [UUID: Date] = [:]
+    private var activeSinceTimestamps: [UUID: Date] = [:] {
+        didSet { invalidateSectionedProjectsCache() }
+    }
 
     /// When non-nil, `sectionedProjects` returns this snapshot verbatim instead
     /// of recomputing. Views freeze/release to prevent the list from reordering
     /// while the user is working in the sidebar.
     private var frozenSnapshot: SectionedProjects?
 
+    /// Memoized `sectionedProjects` result, used whenever there's no active
+    /// freeze. `computeSectionedProjects` is O(projects + sessions) and was
+    /// previously re-run on every read (every `objectWillChange` fire cascades
+    /// into a `WorkspaceSidebarView.body` re-evaluation, which reads this
+    /// property). A single cache slot (not keyed per-project) is sufficient —
+    /// unlike `sessionGroups`, this computation already iterates every project
+    /// in one pass, so there's no per-item granularity to preserve. Invalidated
+    /// at every mutation site below that can change section membership or
+    /// intra-section order (`projects`, `sessions`, `globalIndicatorStates`,
+    /// or `activeSinceTimestamps`).
+    private var sectionedProjectsCache: SectionedProjects?
+
+    private func invalidateSectionedProjectsCache() {
+        sectionedProjectsCache = nil
+    }
+
     /// Four-section sidebar layout: `.pinned`, `.activeNow`, `.recent`, `.all`.
     /// Empty sections are dropped. While a freeze snapshot is held, returns the
     /// snapshot verbatim (mutations update internal state but not layout).
     var sectionedProjects: SectionedProjects {
         if let frozen = frozenSnapshot { return frozen }
-        return Self.computeSectionedProjects(
+        if let cached = sectionedProjectsCache { return cached }
+        let computed = Self.computeSectionedProjects(
             projects: projects,
             sessions: sessions,
             indicatorStates: globalIndicatorStates,
             activeSinceTimestamps: activeSinceTimestamps,
             gracePeriod: Self.activeGracePeriod
         )
+        sectionedProjectsCache = computed
+        return computed
     }
 
     /// Flat list of projects in the visual (sectioned) order users see in the
@@ -174,15 +216,26 @@ final class WorkspaceStore: ObservableObject {
         flatProjectsInVisualOrder.map(\.id)
     }
 
+    /// Memoized `sessionGroups(forProject:)` results, keyed by project id.
+    /// `ProjectDisclosureRow.body` previously called this on every evaluation
+    /// for every expanded project — an uncached O(sessions) filter+sort each
+    /// time. Cleared wholesale (all projects, not just one) by the `sessions`
+    /// / `globalIndicatorStates` `didSet` observers above, since both are the
+    /// only inputs `computeSessionGroups` reads.
+    private var sessionGroupsCache: [UUID: [(SessionBucket, [AgentSession])]] = [:]
+
     /// Session grouping for an expanded project. Returns `(bucket, sessions)`
     /// pairs for the non-empty buckets, in order `.active` → `.recent` → `.idle`.
     /// Sessions are alphabetical within each bucket.
     func sessionGroups(forProject projectId: UUID) -> [(SessionBucket, [AgentSession])] {
-        Self.computeSessionGroups(
+        if let cached = sessionGroupsCache[projectId] { return cached }
+        let computed = Self.computeSessionGroups(
             projectId: projectId,
             sessions: sessions,
             indicatorStates: globalIndicatorStates
         )
+        sessionGroupsCache[projectId] = computed
+        return computed
     }
 
     #if DEBUG

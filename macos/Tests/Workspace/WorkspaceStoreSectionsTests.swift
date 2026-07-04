@@ -601,6 +601,113 @@ struct WorkspaceStoreSectionsTests {
         #expect(groups.map(\.0) == [.active, .recent, .idle])
     }
 
+    // MARK: - Session Groups Cache (instance-level, PR2 perf)
+    //
+    // `WorkspaceStore.sessionGroups(forProject:)` memoizes its result per
+    // project id. These tests exercise the *instance* method (not the pure
+    // `computeSessionGroups` helper above) to confirm the cache is invalidated
+    // correctly by every mutation that changes its output, and that its
+    // result always matches a fresh uncached computation over the same state.
+
+    @MainActor
+    @Test func sessionGroupsCacheReflectsAddedSession() {
+        let p = makeProject(name: "Proj")
+        let s1 = makeSession(name: "One", projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s1])
+
+        let before = store.sessionGroups(forProject: p.id)
+        #expect(before.flatMap(\.1).map(\.name) == ["One"])
+
+        let s2 = store.addSession(name: "Two", templateId: template.id, projectId: p.id)
+
+        let after = store.sessionGroups(forProject: p.id)
+        #expect(Set(after.flatMap(\.1).map(\.id)) == Set([s1.id, s2.id]))
+    }
+
+    @MainActor
+    @Test func sessionGroupsCacheReflectsRemovedSession() {
+        let p = makeProject(name: "Proj")
+        let s1 = makeSession(name: "One", projectId: p.id)
+        let s2 = makeSession(name: "Two", projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s1, s2])
+
+        _ = store.sessionGroups(forProject: p.id)  // populate cache
+        store.removeSession(id: s1.id)
+
+        let after = store.sessionGroups(forProject: p.id)
+        #expect(after.flatMap(\.1).map(\.id) == [s2.id])
+    }
+
+    @MainActor
+    @Test func sessionGroupsCacheReflectsRenamedSession() {
+        let p = makeProject(name: "Proj")
+        let s = makeSession(name: "Zebra", projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s])
+
+        _ = store.sessionGroups(forProject: p.id)  // populate cache
+        store.renameSession(id: s.id, name: "Alpha")
+
+        let after = store.sessionGroups(forProject: p.id)
+        #expect(after.flatMap(\.1).map(\.name) == ["Alpha"])
+    }
+
+    @MainActor
+    @Test func sessionGroupsCacheReflectsIndicatorStateChange() {
+        let p = makeProject(name: "Proj")
+        let s = makeSession(name: "One", projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s])
+
+        let before = store.sessionGroups(forProject: p.id)
+        #expect(before.map(\.0) == [.idle])
+
+        store.updateIndicatorState(id: s.id, state: .processing)
+
+        let after = store.sessionGroups(forProject: p.id)
+        #expect(after.map(\.0) == [.active])
+    }
+
+    @MainActor
+    @Test func sessionGroupsCacheMatchesUncachedComputationAfterMutations() {
+        // Regression guard: the memoized instance-level result must always
+        // equal a fresh static computation over the same live state, even
+        // after a mix of add/rename/indicator mutations.
+        let p = makeProject(name: "Proj")
+        let s1 = makeSession(name: "Alpha", projectId: p.id)
+        let store = WorkspaceStore(testingProjects: [p], testingSessions: [s1])
+
+        _ = store.sessionGroups(forProject: p.id)  // populate cache
+        let s2 = store.addSession(name: "Beta", templateId: template.id, projectId: p.id)
+        store.updateIndicatorState(id: s2.id, state: .processing)
+        store.renameSession(id: s1.id, name: "Zulu")
+
+        let cached = store.sessionGroups(forProject: p.id)
+        let fresh = WorkspaceStore.computeSessionGroups(
+            projectId: p.id,
+            sessions: store.sessions,
+            indicatorStates: store.globalIndicatorStates
+        )
+        #expect(cached.map(\.0) == fresh.map(\.0))
+        #expect(cached.flatMap(\.1) == fresh.flatMap(\.1))
+    }
+
+    @MainActor
+    @Test func sessionGroupsCacheDoesNotLeakAcrossProjects() {
+        // A mutation to one project's session must not affect a sibling
+        // project's cached entry.
+        let p1 = makeProject(name: "One")
+        let p2 = makeProject(name: "Two")
+        let s1 = makeSession(name: "Mine", projectId: p1.id)
+        let s2 = makeSession(name: "Other", projectId: p2.id)
+        let store = WorkspaceStore(testingProjects: [p1, p2], testingSessions: [s1, s2])
+
+        let p2Before = store.sessionGroups(forProject: p2.id)
+        store.updateIndicatorState(id: s1.id, state: .processing)
+        let p2After = store.sessionGroups(forProject: p2.id)
+
+        #expect(p2Before.map(\.0) == p2After.map(\.0))
+        #expect(p2After.flatMap(\.1).map(\.id) == [s2.id])
+    }
+
     // MARK: - Freeze / Release (instance-level integration)
 
     @MainActor
