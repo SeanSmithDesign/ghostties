@@ -215,9 +215,13 @@ final class WorkspaceStore: ObservableObject {
     ///     `lastActiveAt` for `.recent` bucketing but must NOT extend the
     ///     `.activeNow` grace window.
     ///
-    /// Monotonic guard: `lastActiveAt` only advances forward. Rapid repeat calls
-    /// within the same wall-clock millisecond keep the existing value if `now()`
-    /// reports a non-increasing time.
+    /// 5s granularity guard: `lastActiveAt` only advances when `now()` is at
+    /// least 5s past the currently stored value (also enforces the old
+    /// monotonic guard — it never rolls backward). If neither the session nor
+    /// project timestamp needs to move, the function returns without touching
+    /// any `@Published` property or calling `persist()`. The `activeSinceTimestamps`
+    /// grace-tracker refresh below rides this same guard — harmless given its
+    /// much wider 120s window.
     ///
     /// Silent no-op when the session or project id is stale (e.g. a Combine
     /// sink fires after the session was removed) — no crash, no write.
@@ -241,15 +245,20 @@ final class WorkspaceStore: ObservableObject {
 
         let timestamp = now()
 
-        // Monotonic guard — never roll lastActiveAt backward.
-        if let existing = sessions[sessionIdx].lastActiveAt, existing > timestamp {
-            // No-op for the session timestamp; still consider the project / tracker.
-        } else {
+        // 5s granularity guard — writing lastActiveAt unconditionally fires
+        // objectWillChange on every call, and this is called on every throttled
+        // output signal. "Recents" ordering doesn't need finer resolution than
+        // this, so only advance (and persist) when the timestamp is a
+        // meaningful step forward. Also preserves the old monotonic guard
+        // (never rolls lastActiveAt backward).
+        let sessionNeedsUpdate = sessions[sessionIdx].lastActiveAt.map { timestamp.timeIntervalSince($0) >= 5 } ?? true
+        let projectNeedsUpdate = projects[projectIdx].lastActiveAt.map { timestamp.timeIntervalSince($0) >= 5 } ?? true
+        guard sessionNeedsUpdate || projectNeedsUpdate else { return }
+
+        if sessionNeedsUpdate {
             sessions[sessionIdx].lastActiveAt = timestamp
         }
-        if let existing = projects[projectIdx].lastActiveAt, existing > timestamp {
-            // No-op for the project timestamp.
-        } else {
+        if projectNeedsUpdate {
             projects[projectIdx].lastActiveAt = timestamp
         }
 
