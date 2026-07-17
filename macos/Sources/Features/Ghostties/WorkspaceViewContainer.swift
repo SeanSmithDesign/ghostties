@@ -2,6 +2,42 @@ import AppKit
 import Combine
 import SwiftUI
 
+/// Observable width holder for the sidebar's SwiftUI `.frame(width:)` pin.
+/// Owned by `WorkspaceViewContainer` and updated by the drag handler on every
+/// `mouseDragged` tick. Isolating the width behind this tiny model lets only
+/// `SidebarWidthFrame` (below) re-render on drag — not the entire sidebar
+/// subtree, which previously got rebuilt (new WorkspaceSidebarView/
+/// TaskSidebarView, 4 `.environmentObject` calls, `AnyView` reassignment) via
+/// `applySidebarView()` on every tick at 60-120Hz. That subtree has a
+/// documented render-cost history (two shipped 100%-CPU beachball incidents).
+///
+/// INVARIANT: `width` must always be an explicit finite value — never
+/// `.infinity` or 0. Only ever initialized/written from `currentSidebarWidth`,
+/// which already clamps to the design tokens (see sidebar-layout-hang-v0).
+@MainActor
+final class SidebarWidthModel: ObservableObject {
+    @Published var width: CGFloat
+
+    init(width: CGFloat) {
+        self.width = width
+    }
+}
+
+/// Wraps sidebar content in a `.frame(width:)` pin driven by `SidebarWidthModel`
+/// instead of a captured constant. Only this thin wrapper observes width
+/// changes, so the wrapped `content`'s identity — and the identity of
+/// everything inside it — is preserved across drag ticks.
+private struct SidebarWidthFrame<Content: View>: View {
+    @ObservedObject var model: SidebarWidthModel
+    let content: Content
+
+    var body: some View {
+        content
+            .frame(width: model.width)
+            .frame(maxHeight: .infinity)
+    }
+}
+
 /// An NSView that contains the workspace sidebar alongside the existing terminal view.
 /// This replaces TerminalViewContainer as the window's contentView.
 ///
@@ -95,6 +131,14 @@ class WorkspaceViewContainer: NSView {
             }
         }
     }
+
+    /// Observable width model backing the SwiftUI sidebar's `.frame(width:)`
+    /// pin (via `SidebarWidthFrame`, below). Every site that changes the
+    /// sidebar's width also writes this model so the AppKit constraint, the
+    /// stored per-mode width, and the SwiftUI frame stay in lockstep. Lazily
+    /// created so it reads `currentSidebarWidth` after `self` is fully
+    /// initialized; first touched in `applySidebarView()` during `init`.
+    private lazy var widthModel = SidebarWidthModel(width: currentSidebarWidth)
 
     /// Shadow host wraps the terminal container so the drop shadow renders
     /// outside `masksToBounds` clipping. The shadow host carries the shadow;
@@ -554,7 +598,7 @@ class WorkspaceViewContainer: NSView {
 
         let mode = currentSidebarViewMode
         if mode == "taskFirst" {
-            let view = VStack(spacing: 0) {
+            let content = VStack(spacing: 0) {
                 // Reserve space for the window's traffic lights so the NEEDS YOU
                 // header doesn't render behind them.
                 Color.clear.frame(height: WorkspaceLayout.titlebarSpacerHeight)
@@ -564,37 +608,37 @@ class WorkspaceViewContainer: NSView {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            // Pin the outer VStack to a concrete width so the nested LazyStacks
-            // inside the three zones receive a definite cross-axis proposal.
-            // Without this the hosting view proposed .infinity, which sent
-            // LazyVStack.sizeThatFits into an infinite measurement recursion
-            // (see fix/sidebar-layout-hang-v0). Uses currentSidebarWidth so the
-            // user-resizable drag handle works in task-first mode too.
-            .frame(width: currentSidebarWidth)
-            .frame(maxHeight: .infinity)
-            .ignoresSafeArea(.container, edges: .top)
-            // Row clicks in TaskRowView reach back into the terminal via the
-            // coordinator and look up a matching project via WorkspaceStore.
-            // The store is observed so the row sees a current projects list.
-            .environmentObject(taskStore)
-            .environmentObject(coordinator)
-            .environmentObject(WorkspaceStore.shared)
-            .environmentObject(sessionDraftStore)
+            // Pin to a concrete width via `SidebarWidthFrame` so the nested
+            // LazyStacks inside the three zones receive a definite cross-axis
+            // proposal. Without this the hosting view proposed .infinity,
+            // which sent LazyVStack.sizeThatFits into an infinite measurement
+            // recursion (see fix/sidebar-layout-hang-v0). The wrapper reads
+            // `widthModel` (initialized from `currentSidebarWidth`) so the
+            // drag handler can update the width without rebuilding this tree.
+            let view = SidebarWidthFrame(model: widthModel, content: content)
+                .ignoresSafeArea(.container, edges: .top)
+                // Row clicks in TaskRowView reach back into the terminal via the
+                // coordinator and look up a matching project via WorkspaceStore.
+                // The store is observed so the row sees a current projects list.
+                .environmentObject(taskStore)
+                .environmentObject(coordinator)
+                .environmentObject(WorkspaceStore.shared)
+                .environmentObject(sessionDraftStore)
             hostingView.rootView = AnyView(view)
         } else {
-            let view = WorkspaceSidebarView()
+            let content = WorkspaceSidebarView()
                 .environmentObject(WorkspaceStore.shared)
                 .environmentObject(coordinator)
                 .ignoresSafeArea(.container, edges: .top)
-            // Pin to a concrete width so the nested LazyVStack inside
-            // WorkspaceSidebarView receives a definite cross-axis proposal.
-            // Without this the hosting view proposes .infinity, which sends
-            // LazyVStack.sizeThatFits into infinite measurement recursion —
-            // the same root cause fixed for taskFirst in sidebar-layout-hang-v0
-            // (commit 11530667b). Uses currentSidebarWidth so the user-resizable
-            // drag handle continues to work correctly.
-            .frame(width: currentSidebarWidth)
-            .frame(maxHeight: .infinity)
+            // Pin to a concrete width via `SidebarWidthFrame` so the nested
+            // LazyVStack inside WorkspaceSidebarView receives a definite
+            // cross-axis proposal. Without this the hosting view proposes
+            // .infinity, which sends LazyVStack.sizeThatFits into infinite
+            // measurement recursion — the same root cause fixed for taskFirst
+            // in sidebar-layout-hang-v0 (commit 11530667b). The wrapper reads
+            // `widthModel` so the user-resizable drag handle continues to
+            // work without rebuilding this tree on every tick.
+            let view = SidebarWidthFrame(model: widthModel, content: content)
             hostingView.rootView = AnyView(view)
         }
     }
@@ -613,6 +657,7 @@ class WorkspaceViewContainer: NSView {
             switch sidebarMode {
             case .pinned, .overlay:
                 sidebarWidthConstraint.animator().constant = currentSidebarWidth
+                widthModel.width = currentSidebarWidth
             case .closed:
                 break
             }
@@ -757,12 +802,19 @@ class WorkspaceViewContainer: NSView {
         let clamped = min(max(proposed, WorkspaceLayout.sidebarMinWidth), upperBound)
 
         // Single source of truth: writing through `currentSidebarWidth` updates
-        // the same stored value `applySidebarView()` reads for the SwiftUI
-        // `.frame(width:)` pin, so the AppKit constraint and the SwiftUI frame
-        // never diverge (the layout-loop landmine this pin exists to prevent).
+        // the same stored value `applySidebarView()` reads when it next runs,
+        // and writing `widthModel.width` updates the live SwiftUI
+        // `.frame(width:)` pin (via `SidebarWidthFrame`) without rebuilding the
+        // sidebar view tree — so the AppKit constraint, the stored width, and
+        // the SwiftUI frame never diverge (the layout-loop landmine this pin
+        // exists to prevent). Deliberately does NOT call `applySidebarView()`:
+        // that reconstructs the whole sidebar SwiftUI tree (WorkspaceSidebarView/
+        // TaskSidebarView + environment objects) and was previously invoked on
+        // every mouseDragged tick at 60-120Hz — the sidebar subtree has a
+        // documented render-cost history (two shipped 100%-CPU beachballs).
         sidebarWidthConstraint.constant = clamped
         currentSidebarWidth = clamped
-        applySidebarView()
+        widthModel.width = clamped
     }
 
     /// Persist the drag-resized width to this view mode's UserDefaults key.
@@ -949,6 +1001,7 @@ class WorkspaceViewContainer: NSView {
             switch newMode {
             case .pinned:
                 sidebarWidthConstraint.animator().constant = currentSidebarWidth
+                widthModel.width = currentSidebarWidth
                 sidebarHostingView.animator().alphaValue = 1
                 shadowHostTopConstraint.animator().constant = inset
                 shadowHostLeadingToSidebar.animator().constant = inset
@@ -995,6 +1048,7 @@ class WorkspaceViewContainer: NSView {
                     browserDragHandle.isHidden = true
                 }
                 sidebarWidthConstraint.animator().constant = currentSidebarWidth
+                widthModel.width = currentSidebarWidth
                 sidebarHostingView.animator().alphaValue = 1
                 // Terminal stays full-width (leading to superview, no insets).
                 shadowHostTopConstraint.animator().constant = 0
@@ -1320,6 +1374,9 @@ class WorkspaceViewContainer: NSView {
 
             // Sidebar drag handle sits in the 8pt gap between sidebar and terminal
             // (same gap the shadowHostLeadingToSidebar inset constant reserves).
+            // In overlay mode `shadowHostLeadingToSuperview` is active instead, so
+            // this leading/trailing pair can resolve to a hidden negative-width
+            // frame — harmless, since the handle is hidden in overlay mode anyway.
             sidebarDragHandle.topAnchor.constraint(equalTo: sidebarHostingView.topAnchor),
             sidebarDragHandle.bottomAnchor.constraint(equalTo: sidebarHostingView.bottomAnchor),
             sidebarDragHandle.leadingAnchor.constraint(equalTo: sidebarHostingView.trailingAnchor),
