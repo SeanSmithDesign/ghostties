@@ -268,12 +268,18 @@ struct WorkspaceSidebarView: View {
 
         guard let currentId = coordinator.activeSessionId,
               let currentIndex = liveSessions.firstIndex(where: { $0.id == currentId }) else {
-            coordinator.focusSession(id: liveSessions[0].id)
+            let target = offset > 0 ? liveSessions[0] : liveSessions[liveSessions.count - 1]
+            coordinator.focusSession(id: target.id)
+            expandedProjectIds.insert(target.projectId)
+            selectedProjectId = target.projectId
             return
         }
 
         let newIndex = (currentIndex + offset + liveSessions.count) % liveSessions.count
-        coordinator.focusSession(id: liveSessions[newIndex].id)
+        let target = liveSessions[newIndex]
+        coordinator.focusSession(id: target.id)
+        expandedProjectIds.insert(target.projectId)
+        selectedProjectId = target.projectId
     }
 }
 

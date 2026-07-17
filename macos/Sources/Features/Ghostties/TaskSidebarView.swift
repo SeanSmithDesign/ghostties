@@ -148,7 +148,7 @@ struct TaskSidebarView: View {
 
         guard let currentId = taskCyclingCursorId,
               let currentIndex = order.firstIndex(where: { $0.id == currentId }) else {
-            let target = order[0]
+            let target = offset > 0 ? order[0] : order[order.count - 1]
             taskCyclingCursorId = target.id
             withAnimation { proxy.scrollTo(target.id, anchor: .center) }
             return
