@@ -1315,6 +1315,29 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         NotificationCenter.default.post(name: .workspaceSelectPreviousProject, object: window)
     }
 
+    /// "Next Session" — Cmd+Shift+]. View-mode-aware: cycles live sessions in
+    /// project-first mode, or the task-cycling cursor in task-first mode.
+    /// Reads the same `ghostties.sidebarViewMode` defaults key used by
+    /// `toggleTaskView(_:)` / `validateMenuItem(_:)` above.
+    @IBAction func selectNextSession(_ sender: Any?) {
+        let mode = UserDefaults.standard.string(forKey: "ghostties.sidebarViewMode") ?? "projectFirst"
+        if mode == "taskFirst" {
+            NotificationCenter.default.post(name: .workspaceSelectNextTask, object: window)
+        } else {
+            NotificationCenter.default.post(name: .workspaceSelectNextSession, object: window)
+        }
+    }
+
+    /// "Previous Session" — Cmd+Shift+[. See `selectNextSession(_:)`.
+    @IBAction func selectPreviousSession(_ sender: Any?) {
+        let mode = UserDefaults.standard.string(forKey: "ghostties.sidebarViewMode") ?? "projectFirst"
+        if mode == "taskFirst" {
+            NotificationCenter.default.post(name: .workspaceSelectPreviousTask, object: window)
+        } else {
+            NotificationCenter.default.post(name: .workspaceSelectPreviousSession, object: window)
+        }
+    }
+
     @IBAction func newWorkspaceSession(_ sender: Any?) {
         NotificationCenter.default.post(name: .workspaceNewSession, object: window)
     }
