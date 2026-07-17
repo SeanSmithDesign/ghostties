@@ -667,23 +667,43 @@ class AppDelegate: NSObject,
         browserItem.keyEquivalentModifierMask = [.command]
         browserItem.setImageIfDesired(systemSymbolName: "globe")
 
-        // "Next Project" — Cmd+Shift+]
+        // "Next Session" — Cmd+Shift+]. View-mode-aware: live sessions in
+        // project-first mode, task-cycling cursor in task-first mode.
         let nextItem = NSMenuItem(
-            title: "Next Project",
-            action: #selector(TerminalController.selectNextProject(_:)),
+            title: "Next Session",
+            action: #selector(TerminalController.selectNextSession(_:)),
             keyEquivalent: "]"
         )
         nextItem.keyEquivalentModifierMask = [.command, .shift]
         nextItem.setImageIfDesired(systemSymbolName: "chevron.right")
 
-        // "Previous Project" — Cmd+Shift+[
+        // "Previous Session" — Cmd+Shift+[
         let prevItem = NSMenuItem(
-            title: "Previous Project",
-            action: #selector(TerminalController.selectPreviousProject(_:)),
+            title: "Previous Session",
+            action: #selector(TerminalController.selectPreviousSession(_:)),
             keyEquivalent: "["
         )
         prevItem.keyEquivalentModifierMask = [.command, .shift]
         prevItem.setImageIfDesired(systemSymbolName: "chevron.left")
+
+        // "Next Project" — Cmd+Ctrl+]. Formerly Cmd+Shift+]; moved to make
+        // room for session cycling above.
+        let nextProjectItem = NSMenuItem(
+            title: "Next Project",
+            action: #selector(TerminalController.selectNextProject(_:)),
+            keyEquivalent: "]"
+        )
+        nextProjectItem.keyEquivalentModifierMask = [.command, .control]
+        nextProjectItem.setImageIfDesired(systemSymbolName: "chevron.right.2")
+
+        // "Previous Project" — Cmd+Ctrl+[
+        let prevProjectItem = NSMenuItem(
+            title: "Previous Project",
+            action: #selector(TerminalController.selectPreviousProject(_:)),
+            keyEquivalent: "["
+        )
+        prevProjectItem.keyEquivalentModifierMask = [.command, .control]
+        prevProjectItem.setImageIfDesired(systemSymbolName: "chevron.left.2")
 
         // "New Session" — Cmd+Shift+T
         let newSessionItem = NSMenuItem(
@@ -734,9 +754,11 @@ class AppDelegate: NSObject,
         viewMenu.insertItem(browserItem, at: 2)
         viewMenu.insertItem(nextItem, at: 3)
         viewMenu.insertItem(prevItem, at: 4)
-        viewMenu.insertItem(newSessionItem, at: 5)
-        viewMenu.insertItem(sidebarViewParent, at: 6)
-        viewMenu.insertItem(NSMenuItem.separator(), at: 7)
+        viewMenu.insertItem(nextProjectItem, at: 5)
+        viewMenu.insertItem(prevProjectItem, at: 6)
+        viewMenu.insertItem(newSessionItem, at: 7)
+        viewMenu.insertItem(sidebarViewParent, at: 8)
+        viewMenu.insertItem(NSMenuItem.separator(), at: 9)
 
     }
 

@@ -232,6 +232,30 @@ extension Notification.Name {
     /// The notification object is the originating NSWindow.
     static let workspaceSelectPreviousProject = Notification.Name("com.seansmithdesign.ghostties.workspace.selectPreviousProject")
 
+    /// Posted by TerminalController when the user presses Cmd+Shift+] in
+    /// project-first sidebar mode. The notification object is the originating
+    /// NSWindow. `WorkspaceSidebarView` observes this to cycle focus forward
+    /// through live (running) sessions in sidebar visual order.
+    static let workspaceSelectNextSession = Notification.Name("com.seansmithdesign.ghostties.workspace.selectNextSession")
+
+    /// Posted by TerminalController when the user presses Cmd+Shift+[ in
+    /// project-first sidebar mode. The notification object is the originating
+    /// NSWindow. `WorkspaceSidebarView` observes this to cycle focus backward
+    /// through live (running) sessions in sidebar visual order.
+    static let workspaceSelectPreviousSession = Notification.Name("com.seansmithdesign.ghostties.workspace.selectPreviousSession")
+
+    /// Posted by TerminalController when the user presses Cmd+Shift+] in
+    /// task-first sidebar mode. The notification object is the originating
+    /// NSWindow. `TaskSidebarView` observes this to move the task-cycling
+    /// cursor forward through the rendered zone order.
+    static let workspaceSelectNextTask = Notification.Name("com.seansmithdesign.ghostties.workspace.selectNextTask")
+
+    /// Posted by TerminalController when the user presses Cmd+Shift+[ in
+    /// task-first sidebar mode. The notification object is the originating
+    /// NSWindow. `TaskSidebarView` observes this to move the task-cycling
+    /// cursor backward through the rendered zone order.
+    static let workspaceSelectPreviousTask = Notification.Name("com.seansmithdesign.ghostties.workspace.selectPreviousTask")
+
     /// Posted by WorkspaceStore just before a project is removed.
     /// userInfo contains "projectId" (UUID). Coordinators observe this to close
     /// running sessions before the store deletes the project's records.

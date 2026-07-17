@@ -124,6 +124,14 @@ struct WorkspaceSidebarView: View {
             guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
             selectAdjacentProject(offset: -1)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectNextSession)) { notification in
+            guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
+            selectAdjacentLiveSession(offset: 1)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectPreviousSession)) { notification in
+            guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
+            selectAdjacentLiveSession(offset: -1)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .workspaceNewSession)) { notification in
             guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
             createNewSessionForSelectedProject()
@@ -237,6 +245,35 @@ struct WorkspaceSidebarView: View {
         let targetId = visualOrder[newIndex].id
         selectedProjectId = targetId
         expandedProjectIds.insert(targetId)
+    }
+
+    /// All *running* sessions (`coordinator.isRunning(id:)`), flattened in
+    /// sidebar visual order: projects in `flatProjectsInVisualOrder`, then
+    /// each project's sessions in their displayed order
+    /// (`sessionGroups(forProject:)`, same helper `ProjectDisclosureRow` uses
+    /// to render its own rows).
+    private var liveSessionsInVisualOrder: [AgentSession] {
+        store.flatProjectsInVisualOrder.flatMap { project in
+            store.sessionGroups(forProject: project.id).flatMap { $0.1 }
+        }.filter { coordinator.isRunning(id: $0.id) }
+    }
+
+    /// Cmd+Shift+]/[ in project-first mode. Cycles focus through live
+    /// (running) sessions only, wrapping at both ends. No-ops (no beep, no
+    /// crash) when there are zero live sessions; is a no-op when there is
+    /// exactly one.
+    private func selectAdjacentLiveSession(offset: Int) {
+        let liveSessions = liveSessionsInVisualOrder
+        guard !liveSessions.isEmpty else { return }
+
+        guard let currentId = coordinator.activeSessionId,
+              let currentIndex = liveSessions.firstIndex(where: { $0.id == currentId }) else {
+            coordinator.focusSession(id: liveSessions[0].id)
+            return
+        }
+
+        let newIndex = (currentIndex + offset + liveSessions.count) % liveSessions.count
+        coordinator.focusSession(id: liveSessions[newIndex].id)
     }
 }
 

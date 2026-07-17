@@ -21,13 +21,24 @@ struct TaskSidebarView: View {
     @ObservedObject private var composerStore: NewTaskComposerStore = .shared
 
     @EnvironmentObject private var workspaceStore: WorkspaceStore
+    /// Only used to guard the Cmd+Shift+]/[ notifications to this window
+    /// (same `containerView?.window` pattern `WorkspaceSidebarView` uses for
+    /// its project/session cycling) — task cycling itself never touches the
+    /// terminal or session state.
+    @EnvironmentObject private var coordinator: SessionCoordinator
     @Environment(\.colorScheme) private var colorScheme
+
+    /// Cursor for Cmd+Shift+]/[ task cycling (task-first mode). Tracks the
+    /// last task moved to; independent of native SwiftUI row focus (see
+    /// `selectAdjacentTask(offset:proxy:)` for the limitation this implies).
+    @State private var taskCyclingCursorId: String?
 
     var body: some View {
         VStack(spacing: 0) {
             // D22: header strip with [+ Start] button at top-right.
             sidebarHeader
 
+            ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     // Six-zone layout — locked order from the brief:
@@ -83,6 +94,15 @@ struct TaskSidebarView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectNextTask)) { notification in
+                guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
+                selectAdjacentTask(offset: 1, proxy: proxy)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .workspaceSelectPreviousTask)) { notification in
+                guard notification.object as? NSWindow === coordinator.containerView?.window else { return }
+                selectAdjacentTask(offset: -1, proxy: proxy)
+            }
+            }
 
             footer
         }
@@ -92,6 +112,52 @@ struct TaskSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openNewTaskComposer)) { _ in
             composerStore.open(workspaceStore: workspaceStore)
         }
+    }
+
+    // MARK: - Task cycling (Cmd+Shift+]/[, task-first mode)
+
+    /// Flat rendered order across all six zones, mirroring `body`'s zone
+    /// sequence: Inbox → Backlog → Active → Needs you → Review → Graveyard.
+    /// Session drafts in the Active zone are intentionally excluded — they
+    /// aren't `TaskItem`s and have no independent row-click identity.
+    private var flatTaskCycleOrder: [TaskItem] {
+        taskStore.sortedExternalInbox
+            + taskStore.backlog
+            + taskStore.active
+            + taskStore.needsYou
+            + taskStore.review
+            + taskStore.done
+    }
+
+    /// Moves the task-cycling cursor to the next/previous task in
+    /// `flatTaskCycleOrder`, wrapping at both ends, and scrolls it into view.
+    /// No-ops (no beep, no crash) when there are zero tasks.
+    ///
+    /// LIMITATION: this does not drive native SwiftUI keyboard focus
+    /// (`@FocusState` lives inside `TaskRowView`, which this view doesn't
+    /// own) so it doesn't move the visual focus ring or update
+    /// `RowFocusStore` — Return/⌘O still act on whichever row last had real
+    /// keyboard focus, independent of this cursor. It's scroll-to-reveal
+    /// only. It also can't scroll to a task currently rendered in the Active
+    /// zone: `ActiveZoneView` gives its merged rows a `"task:<id>"`-prefixed
+    /// `ForEach` identity rather than the bare task id, so `scrollTo` silently
+    /// no-ops for those rows specifically (still advances the cursor).
+    private func selectAdjacentTask(offset: Int, proxy: ScrollViewProxy) {
+        let order = flatTaskCycleOrder
+        guard !order.isEmpty else { return }
+
+        guard let currentId = taskCyclingCursorId,
+              let currentIndex = order.firstIndex(where: { $0.id == currentId }) else {
+            let target = order[0]
+            taskCyclingCursorId = target.id
+            withAnimation { proxy.scrollTo(target.id, anchor: .center) }
+            return
+        }
+
+        let newIndex = (currentIndex + offset + order.count) % order.count
+        let target = order[newIndex]
+        taskCyclingCursorId = target.id
+        withAnimation { proxy.scrollTo(target.id, anchor: .center) }
     }
 
     // MARK: - Header strip (D22)
@@ -183,18 +249,21 @@ struct TaskSidebarView: View {
 #if DEBUG
 #Preview("Task Sidebar — Light + Dark") {
     let ws = WorkspaceStore(testingProjects: [])
+    let coordinator = SessionCoordinator()
     HStack(spacing: 24) {
         TaskSidebarView(
             taskStore: TaskStore(),
             sessionDraftStore: SessionDraftStore()
         )
         .environmentObject(ws)
+        .environmentObject(coordinator)
         .preferredColorScheme(.light)
         TaskSidebarView(
             taskStore: TaskStore(),
             sessionDraftStore: SessionDraftStore()
         )
         .environmentObject(ws)
+        .environmentObject(coordinator)
         .preferredColorScheme(.dark)
     }
     .padding(24)
