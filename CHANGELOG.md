@@ -145,6 +145,7 @@ First distributable build. Ghostties can now be installed and kept up to date au
 
 ---
 
+[0.1.0-beta.20]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.20
 [0.1.0-beta.19]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.19
 [0.1.0-beta.18]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.18
 [0.1.0-beta.17]: https://github.com/SeanSmithDesign/ghostties/releases/tag/v0.1.0-beta.17
