@@ -58,7 +58,13 @@ jobs:
   macos-app:
     name: macOS App (xcodebuild test)
     if: github.repository != 'ghostty-org/ghostty'
-    runs-on: macos-latest
+    # Pinned to macos-15 (not macos-latest): the macos-latest image moved to
+    # macOS 26 / Xcode 26.6, whose SDK Zig 0.15.2 cannot link against —
+    # `zig build` fails with undefined libSystem symbols (compiler_rt + the
+    # Zig build runner) when producing GhosttyKit.xcframework. macos-15's
+    # Xcode/SDK is within Zig 0.15.2's supported range. Revisit when the
+    # pinned Zig version gains macOS 26 SDK support.
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
