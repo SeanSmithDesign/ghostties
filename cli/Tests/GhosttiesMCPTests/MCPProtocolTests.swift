@@ -127,7 +127,7 @@ final class MCPProtocolTests: XCTestCase {
         XCTAssertEqual(serverInfo?["name"] as? String, "ghostties-mcp")
     }
 
-    func testToolsListReturnsElevenToolsWithSchemas() throws {
+    func testToolsListReturnsAllToolsWithSchemas() throws {
         let responses = try driveServer([
             ["jsonrpc": "2.0", "id": 1, "method": "initialize",
              "params": ["protocolVersion": "2024-11-05", "capabilities": [:],
@@ -140,14 +140,16 @@ final class MCPProtocolTests: XCTestCase {
             XCTFail("tools/list did not return a tools array")
             return
         }
-        XCTAssertEqual(tools.count, 11, "expected 11 tools, got \(tools.count)")
-
+        // Canonical tool set — add new tools here when they ship. The count
+        // assertion derives from this set so it can't go stale on a bare count.
         let expectedNames: Set<String> = [
             "list_tasks", "get_task", "create_task", "update_task_status",
             "get_active", "get_needs_you", "read_task_notes",
             "append_task_notes", "get_inbox", "write_session_notes",
-            "set_task_project"
+            "set_task_project", "set_task_fields"
         ]
+        XCTAssertEqual(tools.count, expectedNames.count,
+                       "expected \(expectedNames.count) tools, got \(tools.count)")
         let actualNames = Set(tools.compactMap { $0["name"] as? String })
         XCTAssertEqual(actualNames, expectedNames)
 
