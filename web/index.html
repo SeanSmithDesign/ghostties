@@ -43,6 +43,8 @@
 
     /* --- Scene container --- */
     .scene {
+      position: relative;
+      z-index: 1;
       width: 100%;
       padding: 48px 32px 40px;
       user-select: none;
@@ -254,6 +256,8 @@
 
     /* --- Product section --- */
     .product {
+      position: relative;
+      z-index: 1;
       width: 100%;
       max-width: 900px;
       margin: 0 auto;
@@ -263,24 +267,88 @@
 
     .product h2 {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 22px;
-      font-weight: 600;
+      font-size: 30px;
+      font-weight: 700;
       color: #E0E0E0;
       margin-bottom: 40px;
       letter-spacing: -0.01em;
+      line-height: 1.25;
     }
 
-    .product-shot {
-      margin-bottom: 56px;
+    .product h2 span {
+      display: block;
     }
 
-    .product-shot img,
-    .product-shot video {
+    /* Window card: glow behind, tilt + chrome + video on top */
+    .product-window {
+      position: relative;
+      margin: 0 auto 24px;
+      max-width: 760px;
+    }
+
+    .product-window::before {
+      content: '';
+      position: absolute;
+      inset: -10%;
+      background: radial-gradient(circle at 50% 45%, rgba(201, 115, 80, 0.3), transparent 65%);
+      filter: blur(40px);
+      z-index: 0;
+    }
+
+    .product-card {
+      position: relative;
+      z-index: 1;
+      transform: rotate(-1.1deg);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0f0f1a;
+      box-shadow:
+        0 34px 80px -22px rgba(0, 0, 0, 0.7),
+        0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    .product-chrome {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      height: 32px;
+      background: #F0E9E6;
+      padding: 0 12px;
+    }
+
+    .product-chrome-dots {
+      position: absolute;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .product-chrome-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .product-chrome-dots span:nth-child(1) { background: #ED6A5E; }
+    .product-chrome-dots span:nth-child(2) { background: #F4BF4F; }
+    .product-chrome-dots span:nth-child(3) { background: #61C554; }
+
+    .product-chrome-label {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: #6b6b6b;
+      background: rgba(0, 0, 0, 0.04);
+      padding: 3px 12px;
+      border-radius: 999px;
+    }
+
+    .product-card video {
       width: 100%;
       height: auto;
       display: block;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .product-caption {
@@ -327,6 +395,48 @@
       display: block;
     }
 
+    /* --- Ambient ghost backdrop (passive, low-opacity, behind all content) --- */
+    .ghost-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .bg-ghost {
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      opacity: 0.12;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .bg-ghost svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .bg-ghost-1 { top: 8%;  left: 6%;  animation: bg-drift-1 34s ease-in-out infinite; animation-delay: 0s; }
+    .bg-ghost-2 { top: 62%; left: 84%; animation: bg-drift-2 41s ease-in-out infinite; animation-delay: 5s; }
+    .bg-ghost-3 { top: 30%; left: 90%; animation: bg-drift-3 28s ease-in-out infinite; animation-delay: 10s; }
+    .bg-ghost-4 { top: 80%; left: 12%; animation: bg-drift-4 45s ease-in-out infinite; animation-delay: 3s; }
+    .bg-ghost-5 { top: 16%; left: 48%; animation: bg-drift-5 37s ease-in-out infinite; animation-delay: 8s; }
+    .bg-ghost-6 { top: 52%; left: 3%;  animation: bg-drift-6 32s ease-in-out infinite; animation-delay: 14s; }
+
+    @keyframes bg-drift-1 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(16px, 12px) rotate(1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+    @keyframes bg-drift-2 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(-18px, 10px) rotate(-1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+    @keyframes bg-drift-3 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(-12px, -14px) rotate(1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+    @keyframes bg-drift-4 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(14px, -10px) rotate(-1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+    @keyframes bg-drift-5 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(-10px, 16px) rotate(1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+    @keyframes bg-drift-6 { 0% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(12px, -12px) rotate(-1deg); } 100% { transform: translate(0, 0) rotate(0deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bg-ghost { animation: none !important; }
+    }
+
     /* --- Mobile --- */
     @media (max-width: 480px) {
       body { padding: 16px; }
@@ -337,13 +447,50 @@
       .terminal { font-size: 16px; }
       footer { padding: 12px 16px; font-size: 10px; }
       .product { padding: 16px 20px 72px; }
-      .product h2 { font-size: 18px; margin-bottom: 28px; }
-      .product-shot { margin-bottom: 36px; }
+      .product h2 { font-size: 22px; margin-bottom: 28px; }
+      .product-window { margin-bottom: 16px; }
+      .product-chrome { height: 26px; }
+      .product-chrome-dots span { width: 8px; height: 8px; }
+      .product-chrome-label { font-size: 10px; padding: 2px 10px; }
       .product-caption { font-size: 11px; margin-top: 8px; }
+      .bg-ghost { width: 44px; height: 44px; }
     }
   </style>
 </head>
 <body>
+  <div class="ghost-backdrop" aria-hidden="true">
+    <div class="bg-ghost bg-ghost-1">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#FF4136" shape-rendering="crispEdges">
+        <rect x="12" y="0" width="24" height="4"/><rect x="8" y="4" width="32" height="4"/><rect x="4" y="8" width="40" height="4"/><rect x="4" y="12" width="8" height="8"/><rect x="20" y="12" width="8" height="8"/><rect x="36" y="12" width="8" height="8"/><rect x="0" y="20" width="48" height="20"/><rect x="0" y="40" width="8" height="4"/><rect x="12" y="40" width="8" height="4"/><rect x="28" y="40" width="8" height="4"/><rect x="40" y="40" width="8" height="4"/><rect x="0" y="44" width="4" height="4"/><rect x="16" y="44" width="4" height="4"/><rect x="28" y="44" width="4" height="4"/><rect x="44" y="44" width="4" height="4"/>
+      </svg>
+    </div>
+    <div class="bg-ghost bg-ghost-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#00BCD4" shape-rendering="crispEdges">
+        <rect x="12" y="0" width="24" height="4"/><rect x="8" y="4" width="32" height="4"/><rect x="4" y="8" width="40" height="4"/><rect x="4" y="12" width="12" height="8"/><rect x="32" y="12" width="12" height="8"/><rect x="0" y="20" width="48" height="20"/><rect x="0" y="40" width="4" height="4"/><rect x="8" y="40" width="8" height="4"/><rect x="20" y="40" width="8" height="4"/><rect x="32" y="40" width="8" height="4"/><rect x="44" y="40" width="4" height="4"/><rect x="0" y="44" width="4" height="4"/><rect x="12" y="44" width="4" height="4"/><rect x="32" y="44" width="4" height="4"/><rect x="44" y="44" width="4" height="4"/>
+      </svg>
+    </div>
+    <div class="bg-ghost bg-ghost-3">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#FF9800" shape-rendering="crispEdges">
+        <rect x="8" y="0" width="32" height="4"/><rect x="4" y="4" width="40" height="4"/><rect x="0" y="8" width="48" height="4"/><rect x="0" y="12" width="8" height="8"/><rect x="16" y="12" width="16" height="8"/><rect x="40" y="12" width="8" height="8"/><rect x="0" y="20" width="48" height="20"/><rect x="0" y="40" width="12" height="4"/><rect x="16" y="40" width="16" height="4"/><rect x="36" y="40" width="12" height="4"/><rect x="0" y="44" width="4" height="4"/><rect x="20" y="44" width="8" height="4"/><rect x="44" y="44" width="4" height="4"/>
+      </svg>
+    </div>
+    <div class="bg-ghost bg-ghost-4">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#81D4FA" shape-rendering="crispEdges">
+        <rect x="16" y="0" width="16" height="4"/><rect x="8" y="4" width="32" height="4"/><rect x="4" y="8" width="40" height="4"/><rect x="0" y="12" width="48" height="4"/><rect x="0" y="16" width="12" height="8"/><rect x="20" y="16" width="8" height="8"/><rect x="36" y="16" width="12" height="8"/><rect x="0" y="24" width="48" height="12"/><rect x="4" y="36" width="40" height="4"/><rect x="8" y="40" width="32" height="4"/><rect x="16" y="44" width="16" height="4"/>
+      </svg>
+    </div>
+    <div class="bg-ghost bg-ghost-5">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#7C4DFF" shape-rendering="crispEdges">
+        <rect x="12" y="0" width="24" height="4"/><rect x="4" y="4" width="40" height="4"/><rect x="0" y="8" width="48" height="4"/><rect x="0" y="12" width="8" height="4"/><rect x="16" y="12" width="16" height="4"/><rect x="40" y="12" width="8" height="4"/><rect x="0" y="16" width="4" height="4"/><rect x="16" y="16" width="16" height="4"/><rect x="44" y="16" width="4" height="4"/><rect x="0" y="20" width="48" height="20"/><rect x="0" y="40" width="8" height="4"/><rect x="16" y="40" width="16" height="4"/><rect x="40" y="40" width="8" height="4"/><rect x="0" y="44" width="4" height="4"/><rect x="20" y="44" width="8" height="4"/><rect x="44" y="44" width="4" height="4"/>
+      </svg>
+    </div>
+    <div class="bg-ghost bg-ghost-6">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#7986CB" shape-rendering="crispEdges">
+        <rect x="8" y="0" width="32" height="4"/><rect x="4" y="4" width="40" height="4"/><rect x="0" y="8" width="48" height="4"/><rect x="0" y="12" width="12" height="4"/><rect x="20" y="12" width="28" height="4"/><rect x="0" y="16" width="8" height="4"/><rect x="20" y="16" width="28" height="4"/><rect x="0" y="20" width="12" height="4"/><rect x="20" y="20" width="28" height="4"/><rect x="0" y="24" width="48" height="16"/><rect x="0" y="40" width="8" height="4"/><rect x="16" y="40" width="16" height="4"/><rect x="40" y="40" width="8" height="4"/><rect x="0" y="44" width="4" height="4"/><rect x="20" y="44" width="8" height="4"/><rect x="44" y="44" width="4" height="4"/>
+      </svg>
+    </div>
+  </div>
+
   <div class="scene animate">
     <div class="ghosts">
       <!-- Row 1: blinky (red) -->
@@ -417,15 +564,17 @@
   </div>
 
   <section class="product">
-    <h2>Multiple agents. One window.</h2>
-    <div class="product-shot">
-      <img src="/assets/product-hero.png" alt="Ghostties sidebar showing multiple projects, one expanded into four parallel Claude Code sessions running side by side" loading="lazy">
-      <div class="product-caption">four sessions, one sidebar, zero window juggling</div>
+    <h2><span>Multiple agents.</span><span>One window.</span></h2>
+    <div class="product-window">
+      <div class="product-card">
+        <div class="product-chrome">
+          <span class="product-chrome-dots"><span></span><span></span><span></span></span>
+          <span class="product-chrome-label">switchboard</span>
+        </div>
+        <video src="/assets/product-combined.mp4" autoplay muted loop playsinline aria-label="Ghostties sidebar switching from four parallel Claude Code sessions to the gt list task-lane view, same window"></video>
+      </div>
     </div>
-    <div class="product-shot">
-      <video src="/assets/product-flow.mp4" autoplay muted loop playsinline></video>
-      <div class="product-caption">gt list &middot; task cards moving through their lanes</div>
-    </div>
+    <div class="product-caption">four sessions &rarr; gt list, same window</div>
   </section>
 
   <footer>
