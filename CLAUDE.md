@@ -4,8 +4,8 @@ Fork of [ghostty-org/ghostty](https://github.com/ghostty-org/ghostty). Adds mult
 
 ## Git & GitHub
 
-- **NEVER open PRs against upstream** (`ghostty-org/ghostty`). Only push/PR to `origin` (`SeanSmithDesign/ghostties`) unless the user explicitly says otherwise.
-- `origin` = `SeanSmithDesign/ghostties` (the fork)
+- **NEVER open PRs against upstream** (`ghostty-org/ghostty`). Only push/PR to `origin` (`SeanSmithWorks/ghostties`) unless the user explicitly says otherwise.
+- `origin` = `SeanSmithWorks/ghostties` (the fork)
 - `upstream` = `ghostty-org/ghostty` (read-only reference)
 
 ## Build
